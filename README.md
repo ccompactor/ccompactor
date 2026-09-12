@@ -6,7 +6,7 @@ OCA is built on top of [`openclaude`](https://github.com/Gitlawb/openclaude), wh
 vendored into this repository as a git submodule. OCA tracks upstream `openclaude` and
 layers its own work on top, so the fork point is always explicit and reproducible.
 
-Maintainer: **musichen**
+Maintainer: **Alexander Musichen** (`musichen`)
 
 ---
 
@@ -77,7 +77,7 @@ Typical flow:
 git push origin HEAD            # 3. share the pin (or use --push)
 ```
 
-Commits produced by the script are attributed to **musichen** and look like:
+Commits produced by the script are attributed to **Alexander Musichen** and look like:
 
 ```
 chore(submodule): sync openclaude to e2b021d8bbda (upstream/main)
@@ -99,7 +99,7 @@ git submodule update --init --recursive
 git -C openclaude fetch upstream main
 git -C openclaude checkout --detach upstream/main
 git add .gitmodules openclaude
-git -c user.name=musichen -c user.email=alex.musichen@gmail.com \
+git -c user.name="Alexander Musichen" -c user.email=alex.musichen@gmail.com \
   commit -m "chore(submodule): sync openclaude to upstream/main"
 ```
 

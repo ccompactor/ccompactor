@@ -11,7 +11,7 @@
 # that branch (detached HEAD, as submodules should be), and records the new
 # pinned commit in this repository.
 #
-# Maintainer: musichen
+# Maintainer: Alexander Musichen (musichen)
 # =============================================================================
 
 set -euo pipefail
@@ -23,7 +23,7 @@ UPSTREAM_URL="${OCA_UPSTREAM_URL:-https://github.com/Gitlawb/openclaude.git}"
 SUBMODULE="${OCA_SUBMODULE:-openclaude}"
 REMOTE_NAME="${OCA_UPSTREAM_REMOTE:-upstream}"
 BRANCH="${OCA_UPSTREAM_BRANCH:-main}"
-GIT_NAME="${OCA_GIT_NAME:-musichen}"
+GIT_NAME="${OCA_GIT_NAME:-Alexander Musichen}"
 GIT_EMAIL="${OCA_GIT_EMAIL:-alex.musichen@gmail.com}"
 
 # ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ if [ "$DO_COMMIT" -eq 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Commit the new pin (attributed to musichen)
+# 6. Commit the new pin (attributed to Alexander Musichen)
 # ---------------------------------------------------------------------------
 STAGED="$(git diff --cached --name-only)"
 if [ -z "$STAGED" ]; then
