@@ -1,0 +1,3 @@
+[submodule "openclaude"]
+	path = openclaude
+	url = https://github.com/Gitlawb/openclaude.git
