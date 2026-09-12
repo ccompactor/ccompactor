@@ -20,11 +20,15 @@ program
   .description(
     'Extract any coding agent session into a compact, verified, provenance-linked handoff any other agent can continue from.',
   )
-  .version('0.1.0')
+  .version('0.1.1')
   .option('--json', 'machine-readable output on stdout')
   .option('--quiet', 'suppress progress and diagnostics on stderr')
   .option('--tui', 'open the interactive browser')
-  .option('--out <dir>', 'output directory', '.ccompactor')
+  .option(
+    '--out <dir>',
+    'output directory, for every command that writes one (default: .ccompactor)',
+    '.ccompactor',
+  )
   .showHelpAfterError()
 
 function note(message: string): void {
@@ -129,7 +133,6 @@ program
 program
   .command('extract <reference>')
   .description('Produce a handoff artifact from a session. The main command.')
-  .option('--out <dir>', 'output directory', '.ccompactor')
   .option('--llm <mode>', 'none | auto | api:anthropic | api:openai | api:compat/<model>', 'auto')
   .option('--focus <text>', 'bias the summary toward this')
   .option('--instructions <text>', 'extra instructions for the summary')
@@ -142,7 +145,7 @@ program
     const result = await extractSession(
       reference,
       {
-        outDir: opts.out,
+        outDir: program.opts()['out'] ?? '.ccompactor',
         llm: selection,
         ...(opts.focus ? { focus: opts.focus } : {}),
         ...(opts.instructions ? { instructions: opts.instructions } : {}),
@@ -199,7 +202,6 @@ program
   .command('handoff <reference>')
   .description('Launch a target agent with the handoff preloaded.')
   .requiredOption('--to <agent>', 'claude, openclaude, codex, pi, or generic')
-  .option('--out <dir>', 'output directory', '.ccompactor')
   .option('--llm <mode>', 'none | auto | api:<provider>', 'auto')
   .option('--run', 'launch it rather than printing the command')
   .option('--any-project', 'ignore the project filter')
@@ -210,10 +212,14 @@ program
     const selection = opts.llm === 'auto' ? resolveAuto() : parseSelection(opts.llm)
     const result = await extractSession(
       reference,
-      { outDir: opts.out, llm: selection, anyProject: opts.anyProject === true },
+      {
+        outDir: program.opts()['out'] ?? '.ccompactor',
+        llm: selection,
+        anyProject: opts.anyProject === true,
+      },
       note,
     )
-    const artifact = result.written[0] ?? `${opts.out}/handoff.md`
+    const artifact = result.written[0] ?? `${program.opts()['out'] ?? '.ccompactor'}/handoff.md`
     const launch = plan(opts.to, artifact, process.cwd())
     if (!opts.run) {
       note(`targets on PATH: ${installed().join(', ') || 'none'}`)
@@ -265,7 +271,6 @@ program
   .option('--deep <n>', '', (v) => Number.parseInt(v, 10), 8)
   .option('--recent <n>', '', (v) => Number.parseInt(v, 10), 4)
   .option('--expansions <n>', 'retrieval rounds allowed', (v) => Number.parseInt(v, 10), 3)
-  .option('--out <dir>', 'write bench.json and bench.md here')
   .option('--show-answers', 'print what the successor answered for each question')
   .option('--any-project', 'ignore the project filter')
   .action(async (references: string[], opts) => {
@@ -278,7 +283,7 @@ program
         llm: selection,
         arms: opts.arms.split(',').map((a: string) => a.trim()) as never,
         bench: { brief: opts.brief, deep: opts.deep, recent: opts.recent, expansions: opts.expansions },
-        ...(opts.out ? { outDir: opts.out } : {}),
+        ...(program.opts()['out'] ? { outDir: program.opts()['out'] } : {}),
         discover: { anyProject: opts.anyProject === true },
       },
       note,

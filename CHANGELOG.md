@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.1]
+
+### Fixed
+
+- **`--out` was silently ignored by `extract`, `handoff` and `bench`.** Adding a global `--out` for
+  the TUI made commander intercept the flag wherever it appeared, so the subcommands kept their own
+  default and every one of them wrote to `.ccompactor` instead of the directory asked for. There is
+  now a single global `--out`, which is what the flag always claimed to be. Caught by downloading the
+  released binary and running it — the release worked, and wrote to the wrong place.
+
+## [0.1.0] — 2026-09-12
+
+First release.
+
+- **Reads** Claude Code / OpenClaude, Codex CLI and Pi session transcripts.
+- **Writes** `.ccompactor/`: `handoff.md`, `handoff.json`, `ledgers.json`, `provenance.json`,
+  `state.json` — a layered artifact whose every claim carries a recoverable `[evt a–b]` pointer.
+- **`--llm none` is a first-class mode**: 4,050 tokens in 2 seconds on a 103,757-event session, no
+  model, no network.
+- **Commands**: `doctor`, `list`, `find`, `resolve`, `extract`, `expand`, `verify`, `handoff`,
+  `skill`, `bench`, `--tui`.
+- **Benchmarked in the open**, including where it loses: retrieval ~38% against its Rust sister
+  project sctxx's ~73% on the same session, same questions, same backend, three runs each.
+
 ## [Unreleased]
 
 ### Added
