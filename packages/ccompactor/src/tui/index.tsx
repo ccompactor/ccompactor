@@ -15,6 +15,7 @@ import { listSessions, fuzzyScore } from '../discover/index.js'
 import { extractSession } from '../extract.js'
 import { plan, installed, type Target } from '../handoff/index.js'
 import type { SessionRef } from '../ir/types.js'
+import { THEME, hazard, sizeLabel, width } from './theme.js'
 
 type Screen = 'browse' | 'detail' | 'handoff'
 
@@ -130,53 +131,71 @@ function App({ outDir, anyProject, onDone }: AppProps): React.ReactElement {
     if (input === 'h' && artifact) setScreen('handoff')
   })
 
-  if (loading) return <Text>scanning agent stores …</Text>
+  if (loading) return <Text color={THEME.yellow}>scanning agent stores …</Text>
 
   const visible = filtered.slice(Math.max(0, cursor - height + 3), Math.max(height - 2, cursor + 1))
 
   return (
     <Box flexDirection="column">
       <Box>
-        <Text bold color="cyan">
-          ccompactor
+        {hazard(stdout?.columns).map((cell, i) => (
+          <Text key={i} color={cell.dim ? THEME.stripeDim : THEME.yellow}>
+            {cell.ch}
+          </Text>
+        ))}
+      </Box>
+
+      <Box>
+        <Text bold backgroundColor={THEME.yellow} color={THEME.onYellow}>
+          {' ccompactor '}
         </Text>
-        <Text dimColor>
+        <Text color={THEME.muted}>
           {'  '}
           {filtered.length} of {rows.length} session(s)
-          {anyProject ? ' (all projects)' : ''}
+          {anyProject ? ' · all projects' : ''}
         </Text>
       </Box>
 
       {searching ? (
         <Box>
-          <Text color="yellow">search: </Text>
+          <Text bold color={THEME.yellow}>search: </Text>
           <Text>{query}</Text>
-          <Text color="gray">▏</Text>
+          <Text color={THEME.yellowInk}>▏</Text>
         </Box>
       ) : (
-        <Text dimColor>/ search · ↑↓ move · enter detail · e extract · h handoff · q quit</Text>
+        <Text color={THEME.muted}>
+          / search · ↑↓ move · enter detail ·{' '}
+          <Text color={THEME.yellowInk}>e</Text> extract ·{' '}
+          <Text color={THEME.yellowInk}>h</Text> handoff · q quit
+        </Text>
       )}
 
       <Box flexDirection="column" marginTop={1}>
         {visible.map((ref, index) => {
           const active = filtered[cursor]?.id === ref.id
           return (
-            <Text key={`${ref.agent}:${ref.id}:${index}`} inverse={active}>
+            <Text
+              key={`${ref.path}:${index}`}
+              {...(active
+                ? { backgroundColor: THEME.yellow, color: THEME.onYellow, bold: true }
+                : {})}
+            >
               {active ? '❯ ' : '  '}
               {ref.agent.padEnd(7)}
               {ref.id.slice(0, 36).padEnd(38)}
-              {sizeLabel(ref.bytes).padStart(8)} {new Date(ref.mtime).toISOString().slice(0, 16).replace('T', ' ')}
+              {sizeLabel(ref.bytes).padStart(8)}{' '}
+              {new Date(ref.mtime).toISOString().slice(0, 16).replace('T', ' ')}
             </Text>
           )
         })}
       </Box>
 
       {screen !== 'browse' && selected && (
-        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
-          <Text bold>
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor={THEME.yellow} paddingX={1}>
+          <Text bold color={THEME.yellowInk}>
             {selected.agent}:{selected.id}
           </Text>
-          <Text dimColor>{selected.path}</Text>
+          <Text color={THEME.muted}>{selected.path}</Text>
           {screen === 'detail' && (
             <Text>
               {sizeLabel(selected.bytes)} · modified{' '}
@@ -198,19 +217,13 @@ function App({ outDir, anyProject, onDone }: AppProps): React.ReactElement {
 
       {status.length > 0 && (
         <Box marginTop={1}>
-          <Text color="green">{status}</Text>
+          <Text color={THEME.yellowInk}>{status}</Text>
         </Box>
       )}
     </Box>
   )
 }
 
-function sizeLabel(bytes: number | undefined): string {
-  if (bytes === undefined) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 export async function runTui(options: { outDir?: string; anyProject?: boolean } = {}): Promise<number> {
   let code = 0

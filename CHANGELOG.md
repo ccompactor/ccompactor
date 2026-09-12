@@ -2,6 +2,15 @@
 
 ## [0.1.1]
 
+### Changed
+
+- **The TUI wears the same colours as the website.** Safety yellow `#FFD400` on blacktop, with the
+  hazard stripe as a header: black-on-yellow for the brand chip and the selected row, a dimmed
+  alternate block for the stripe, muted grey for metadata, and a lighter yellow ink for the keys in
+  the help line — chosen because plain yellow body text on a light terminal is unreadable. The
+  terminal's own background is left alone rather than forced black, which would fight a reader's
+  theme.
+
 ### Fixed
 
 - **`--out` was silently ignored by `extract`, `handoff` and `bench`.** Adding a global `--out` for

@@ -12,6 +12,9 @@ on:
 
 permissions:
   contents: write
+  # `npm publish --provenance` mints a signed attestation through the workflow's
+  # OIDC identity, and npm refuses without this even though the token is fine.
+  id-token: write
 
 jobs:
   # Publish to npm first. The standalone binaries below are for people who do not
