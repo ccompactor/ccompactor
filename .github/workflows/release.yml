@@ -79,7 +79,13 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      # The TUI pulls in ink, which pulls in react-devtools-core at bundle time.
+      # The version comes from package.json, not from the git ref. A manual run
+      # has no tag, and `GITHUB_REF_NAME` is then the branch name — which is how
+      # the first attempt produced a Debian package with `Version: main`.
+      - name: version
+        id: version
+        run: echo "value=$(node -p "require('./packages/ccompactor/package.json').version")" >> "$GITHUB_OUTPUT"
+
       # Cross-compiling resolves the whole graph, so dev dependencies must be
       # present even though nothing in the shipped path uses them.
       - name: compile
@@ -88,7 +94,7 @@ jobs:
             --target=${{ matrix.target }} \
             --outfile dist/${{ matrix.asset }}${{ matrix.ext }} \
             packages/ccompactor/src/cli.ts
-          echo "${{ github.ref_name }}" > dist/VERSION
+          echo "${{ steps.version.outputs.value }}" > dist/VERSION
       - name: archive
         run: |
           set -e
@@ -104,7 +110,7 @@ jobs:
         if: matrix.deb_arch != ''
         run: |
           set -e
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ steps.version.outputs.value }}"
           ROOT="deb/ccompactor_${VERSION}_${{ matrix.deb_arch }}"
           mkdir -p "$ROOT/DEBIAN" "$ROOT/usr/bin" "$ROOT/usr/share/doc/ccompactor"
           cp "dist/${{ matrix.asset }}" "$ROOT/usr/bin/ccompactor"
@@ -146,3 +152,6 @@ jobs:
           files: artifacts/**
           generate_release_notes: true
           draft: ${{ inputs.dry_run }}
+          # On a tag push this is the tag; on a manual run there is none, and the
+          # release is a draft anyway.
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
