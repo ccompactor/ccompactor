@@ -1,322 +1,378 @@
 // All page content lives here so the components stay presentational and the
 // docs can be edited without touching layout code.
 
-export const VERSION = "0.3.0";
-export const REPO = "https://github.com/handyutils/sctxx";
-export const CRATE = "https://crates.io/crates/sctxx";
+export const VERSION = "0.1.0";
+export const REPO = "https://github.com/ccompactor/ccompactor";
+export const NPM = "https://www.npmjs.com/package/ccompactor";
+export const SISTER = "https://github.com/handyutils/sctxx";
+export const NOTICE_URL = `${REPO}/blob/main/NOTICE`;
 
 export const hero = {
-  eyebrow: "RUST · CLAUDE CODE · CODEX CLI · PI",
-  title: ["Continue any agent’s", "session in any", "other agent."],
+  eyebrow: "TYPESCRIPT · MIT · CLAUDE CODE · CODEX CLI · PI",
+  title: ["Your context has been", "sitting in a", "finished session."],
+  taglines: [
+    "Heavy machinery for light context.",
+    "We compact your context.",
+    "Licensed to compact.",
+  ],
   lead:
-    "sctxx reads a coding-agent session transcript from disk and produces a compact, verified, " +
-    "provenance-linked handoff artifact — so the next agent starts warm instead of blind.",
+    "ccompactor reads a coding-agent session straight off disk and crushes it into a compact, " +
+    "verified, provenance-linked handoff artifact — so the next agent starts warm instead of blind.",
+  install: "npm i -g ccompactor",
   facts: [
-    { label: "Install", value: "npm i -g sctxx" },
-    { label: "Extract", value: "sctxx extract claude:last" },
-    { label: "Works offline", value: "--llm none" },
-    { label: "Licence", value: "Apache-2.0" },
+    { label: "Requires", value: "Node ≥ 20" },
+    { label: "No model needed", value: "--llm none" },
+    { label: "Licence", value: "MIT" },
+    { label: "Egress", value: "none unless you ask" },
   ],
 };
 
 export const proof = {
-  before: "302 MB transcript · 141,409 events · 288 user turns",
-  after: "7.9 KB handoff · 3.2k tokens · every claim traceable",
-  time: "5.0 s on an M1 Max, no model called",
+  before: "103,757 events · one real session",
+  after: "4,050 tokens · every claim traceable",
+  time: "2.0 s on an M-series laptop, no model called",
   note:
-    "Measured on a synthetic tool-output-heavy session, release build. " +
-    "The numbers and the command are in specs/004-m1-deterministic-handoff-skeleton/evidence/.",
+    "The deterministic pass — ledgers, constraints, brief, retrieval index — reads the whole " +
+    "transcript and writes a complete artifact with no network call. The same run with " +
+    "--llm api:anthropic adds the L1 continuation summary on top.",
 };
 
 /**
- * The architecture diagram, as a first-class section rather than a decoration.
- * `alt` is not optional here: the image is the fastest way to understand what
- * sctxx is, and a reader using a screen reader gets the same explanation in text.
+ * The honest number, given its own disclosure ribbon rather than buried in a
+ * table. The instruction to this site was to publish the figure where the tool
+ * loses; a caution stripe is the construction-site way to say "read this bit".
  */
-export const architecture = {
-  image: "sctxx_context_extraction_architecture.png",
-  alt:
-    "sctxx context extraction architecture. Three agent transcripts — Claude Code, " +
-    "Codex CLI and Pi — are read by provider adapters that reconstruct the active " +
-    "branch. Deterministic Rust then builds the ledgers and masks the rows, which " +
-    "branch into a recency tail and into chunks. The chunks go through a premap pass " +
-    "and a stateful anchored fold that emits typed operations, which are validated " +
-    "into the fold state. The repository check reconciles that state against the " +
-    "working tree, and the renderer writes handoff.md with its pointers.",
-  caption:
-    "The whole path. Everything above the fold is deterministic Rust — parsing, active-branch " +
-    "reconstruction, ledgers, masking, segmentation, budgets, validation and rendering. Only the " +
-    "premap, the fold and the final pass can call a model, and they are opt-in (`--llm`).",
+export const caution = {
+  label: "Caution · honest numbers",
+  title: "On the handoff benchmark, ccompactor is behind its sister project.",
+  body:
+    "Same session, same questions, same backend, three runs each. Retrieval accuracy ~38% for " +
+    "ccompactor against ~73% for the Rust original; the deep-question class ~4/12 against ~9/12. " +
+    "That gap is the current bottleneck — the retrieval index tells a successor which ranges " +
+    "exist, and it is not yet good enough. It is published because a benchmark you only win is " +
+    "not a benchmark.",
+  href: "#benchmarks",
+  linkText: "See the numbers",
+};
+
+export const benchmarks = {
+  arms: [
+    {
+      arm: "none",
+      what: "The successor agent gets the task and nothing else.",
+      why: "The floor. Any handoff that cannot beat this has not handed anything off.",
+    },
+    {
+      arm: "tail",
+      what: "The last N tokens of the transcript, verbatim.",
+      why: "The obvious baseline, and the one ccompactor measured, then removed.",
+    },
+    {
+      arm: "artifact",
+      what: "The L0 brief and the L1 continuation summary, no retrieval.",
+      why: "What you get from a single read of the artifact.",
+    },
+    {
+      arm: "retrieval",
+      what: "The artifact plus the L3 index, with expansion rounds allowed.",
+      why: "The arm that should win. It currently wins by less than it should.",
+    },
+  ],
+  headline: [
+    ["Retrieval accuracy", "~38%", "~73%"],
+    ["Deep questions", "~4 / 12", "~9 / 12"],
+  ],
+  meta: [
+    ["Session", "One real 103,757-event transcript"],
+    ["Questions", "Brief, recent, and deep classes"],
+    ["Backend", "The same model for both tools"],
+    ["Runs", "Three each, same arms"],
+  ],
+  removed: {
+    title: "A baseline that was measured and then deleted",
+    body:
+      "The recency tail is the one compaction strategy with an ablation behind it " +
+      "(arXiv:2508.21433), so copying it looked obviously right. On the same session, same " +
+      "questions, and same backend it made retrieval worse — 38% to 27% across three runs — and " +
+      "tripled the token count. More context is not more answer. The arm was removed rather than " +
+      "kept for symmetry, and the measurement is what removed it.",
+  },
+  reproduce: `# four arms, the same questions, whatever backend plays the successor
+ccompactor bench claude:7c1e8f82 --arms none,tail,artifact,retrieval --out bench/
+# bench/bench.md has the table; --show-answers prints what it actually answered`,
+};
+
+export const install = {
+  methods: [
+    {
+      title: "npm, global",
+      body: "Needs Node 20 or newer. This is the whole install.",
+      code: "npm i -g ccompactor\nccompactor doctor",
+    },
+    {
+      title: "Standalone binary",
+      body:
+        "One file per platform, no Node runtime needed. Download it from the releases page, " +
+        "chmod it, and put it on your PATH.",
+      code: `# https://github.com/ccompactor/ccompactor/releases
+chmod +x ./ccompactor-<platform>
+mv ./ccompactor-<platform> /usr/local/bin/ccompactor
+ccompactor doctor`,
+    },
+    {
+      title: "From source",
+      body:
+        "The workspace builds with tsc. npm run link puts the command on your PATH and leaves " +
+        "you on your own edits.",
+      code: "git clone https://github.com/ccompactor/ccompactor\ncd ccompactor\nnpm install\nnpm run link",
+    },
+  ],
 };
 
 // Every section is searchable; `text` is the haystack.
+
+export const trust = [
+  {
+    kicker: "Deterministic first",
+    title: "The model is opt-in",
+    body:
+      "--llm none produces a complete artifact with no model and no network. Parsing, ledgers, " +
+      "constraint extraction, redaction, budgets, validation, and rendering are all plain " +
+      "TypeScript.",
+  },
+  {
+    kicker: "Provenance",
+    title: "Every claim has a pointer",
+    body:
+      "Each claim carries the [evt a–b] range that justifies it, and ccompactor expand prints " +
+      "those events back, paged. Nothing is a claim you cannot check.",
+  },
+  {
+    kicker: "Verbatim quotes",
+    title: "Your rules, in your words",
+    body:
+      "A constraint attributed to the human is a real quote from a real message, not a summary " +
+      "of one. ccompactor verify re-checks that the quotes are still in the transcript.",
+  },
+  {
+    kicker: "Verification",
+    title: "Re-check it later",
+    body:
+      "ccompactor verify <dir> re-reads an artifact without re-extracting: does it still match " +
+      "its schema, are the quotes still in the transcript, do the files it names still exist.",
+  },
+  {
+    kicker: "Privacy",
+    title: "Secrets are redacted",
+    body:
+      "Redaction runs before any model call and again in the rendered artifact. With --llm none " +
+      "there is no network call at all, and there is no telemetry either way.",
+  },
+  {
+    kicker: "Scope",
+    title: "It knows what it does not do",
+    body:
+      "It does not replace live /compact inside a running agent, it never mutates a source " +
+      "transcript, and it does not claim bit-identical behaviour with proprietary Claude Code.",
+  },
+];
 export const sections = [
   {
     id: "why",
     number: "01",
     title: "Why this exists",
-    lead: "Three situations where a transcript on disk is worth more than a fresh start.",
+    lead: "Three jobs a finished transcript is better at than a fresh start.",
     kind: "cards",
     cards: [
       {
-        kicker: "Context limit",
-        title: "The session ran out of room",
+        kicker: "Ran out of room",
+        title: "The context limit won",
         body:
           "Your agent compacted itself into a paragraph and lost the error you were chasing. " +
-          "sctxx re-reads the original file, which still has everything.",
+          "ccompactor re-reads the original file, which still has all of it.",
       },
       {
         kicker: "Switching agents",
-        title: "Yesterday in Claude, today in Codex",
+        title: "Yesterday Claude, today Codex",
         body:
-          "Session formats are provider-specific and mutually unreadable. sctxx normalizes all " +
-          "of them to one artifact any agent can load.",
+          "Session formats are provider-specific and mutually unreadable. ccompactor normalizes " +
+          "all of them into one artifact any agent can load.",
       },
       {
         kicker: "Coming back",
         title: "What was I doing?",
         body:
-          "Point sctxx at last week’s session and get the goal, the current step, the failing " +
-          "command, and the approaches that already failed.",
+          "Point it at last week's session and get the goal, the last command, the unresolved " +
+          "error signatures, and what the work touched.",
+      },
+      {
+        kicker: "Handing over",
+        title: "A colleague, or a fresh agent",
+        body:
+          "ccompactor handoff writes the artifact and launches the target agent with it " +
+          "preloaded, so the new session opens already knowing the job.",
       },
     ],
-    text: "context limit compaction switching agents claude codex pi resume coming back",
+    text: "context limit compaction switching agents claude codex pi resume coming back handoff",
   },
   {
     id: "quickstart",
     number: "02",
     title: "Quick start",
-    lead: "Install, teach your agents about it, and extract your most recent session.",
+    lead: "Four commands from nothing to a handoff artifact you can read.",
     kind: "steps",
     steps: [
       {
         title: "Install",
-        body:
-          "One static binary, installed from npm for your platform, or built from crates.io if you " +
-          "prefer. No runtime, no daemon, no account.",
-        code: "npm i -g sctxx       # or: cargo install sctxx",
+        body: "One global npm install, or a standalone binary if there is no Node on the box.",
+        code: "npm i -g ccompactor",
       },
       {
-        title: "Install the Agent Skill",
+        title: "See what is on this machine",
         body:
-          "Writes SKILL.md into Claude Code, Codex, and Pi so they know when to reach for it. " +
-          "It refuses to overwrite a file you edited.",
-        code: "sctxx skill install",
+          "ccompactor doctor reports which agent stores it found and which LLM backends are " +
+          "available. It is the first thing to run when something looks empty.",
+        code: "ccompactor doctor",
       },
       {
-        title: "Check what was detected",
-        body: "Stores, session counts, available LLM backends, and which one --llm auto picks.",
-        code: "sctxx doctor",
+        title: "Find the session",
+        body:
+          "list is newest-first for this project. find searches ids, project paths, and the first " +
+          "thing the human asked for.",
+        code: `ccompactor list --limit 5
+ccompactor find "auth migration"`,
       },
       {
-        title: "Extract",
+        title: "Extract the handoff",
         body:
-          "Writes handoff.md plus the JSON artifacts into .sctxx/. Read handoff.md; the rest is " +
-          "there so any claim can be checked.",
-        code: "sctxx extract claude:last --out .sctxx/",
+          "Writes .ccompactor/ with handoff.md and four JSON files beside it. --llm none is the " +
+          "default-shaped run with no model and no network.",
+        code: "ccompactor extract claude:last --llm none --out .ccompactor",
+      },
+      {
+        title: "Hand it to another agent",
+        body:
+          "Point the target agent at the artifact. --run launches it for you instead of printing " +
+          "the command.",
+        code: `ccompactor handoff codex:last --to claude
+ccompactor handoff codex:last --to codex --run`,
       },
     ],
-    text: "quick start install cargo skill doctor extract out sctxx directory",
+    text: "quick start install npm link binary doctor list find extract handoff out ccompactor directory node",
   },
   {
-    id: "prompts",
+    id: "agents",
     number: "03",
-    title: "Talking to your agent",
-    lead:
-      "With the skill installed, you do not run sctxx yourself. You say what you want, and the " +
-      "agent runs it.",
-    kind: "prompts",
-    prompts: [
-      {
-        say: "use sctxx to extract session 7c1e8f82 from claude code and use it here",
-        runs: "sctxx extract claude:7c1e8f82 --out .sctxx/",
-        note: "The most direct form: you know the id.",
-      },
-      {
-        say: "continue what we were doing in this repo yesterday",
-        runs: "sctxx list --limit 5 --json then sctxx extract <ref> --out .sctxx/",
-        note: "The agent lists recent sessions for this directory and picks by recency and title.",
-      },
-      {
-        say: "pick up the auth migration work from codex",
-        runs: 'sctxx find "auth migration" --agent codex --json',
-        note: "Search by topic across titles and user messages.",
-      },
-      {
-        say: "load the last session but focus on finishing the exporter",
-        runs: 'sctxx extract last --focus "finish the exporter" --out .sctxx/',
-        note: "--focus biases extraction toward the part of the session that matters now.",
-      },
-      {
-        say: "what did that error at the end actually say?",
-        runs: "sctxx expand claude:7c1e8f82 4122..4381 --context 3",
-        note: "Every [evt a–b] pointer in the artifact expands back to the real events.",
-      },
-      {
-        say: "is that handoff from last week still accurate?",
-        runs: "sctxx verify .sctxx/",
-        note: "Re-checks the artifact against the current repository without re-extracting.",
-      },
-    ],
-    text:
-      "prompts talking agent session id extract continue resume find focus expand verify " +
-      "pointer jsonl how to point agent at specific session",
-  },
-  {
-    id: "session-ids",
-    number: "04",
-    title: "Pointing at a specific session",
-    lead: "How to name the session you mean, and where the files live.",
+    title: "Supported agents",
+    lead: "Three transcript formats, read straight off disk. No daemon, no account, no API for them.",
     kind: "reference",
     text:
-      "session id jsonl reference claude codex pi last prefix path store location where are " +
-      "sessions stored ambiguous exit code 3",
+      "supported agents claude code claude code openclaude codex cli pi store location where are " +
+      "sessions stored session refs reference prefix last path jsonl jsonl.zst override root " +
+      "ambiguous exit code 3 doctor",
+  },
+  {
+    id: "commands",
+    number: "04",
+    title: "Commands reference",
+    lead: "Eleven commands, every flag, nothing hidden behind a config file.",
+    kind: "commands",
+    text:
+      "commands reference doctor list find resolve extract expand verify handoff skill bench tui " +
+      "flags json quiet any-project out llm focus instructions dry-run strict context page",
+  },
+  {
+    id: "pipeline",
+    number: "05",
+    title: "How it works",
+    lead:
+      "Deterministic first. TypeScript computes everything that can be computed; a model is " +
+      "opt-in and only ever makes the judgment calls.",
+    kind: "architecture",
+    text:
+      "how it works pipeline adapters parse active branch ledgers constraints deterministic mask " +
+      "summarise fold llm none api anthropic openai compat render artifact layers provenance " +
+      "verify expand redact tokens budget",
   },
   {
     id: "artifact",
-    number: "05",
-    title: "What you get",
-    lead:
-      "Four layers, cheapest first, so an agent can stop reading as soon as it knows enough.",
-    kind: "artifact",
-    text: "artifact layers L0 L1 L2 L3 brief items recency tail retrieval handoff.md state.json",
-  },
-  {
-    id: "architecture",
     number: "06",
-    title: "How it works",
-    lead:
-      "From three transcript formats to one artifact, with every step that can be deterministic " +
-      "being deterministic.",
-    kind: "architecture",
+    title: "The artifact",
+    lead: "One directory, five files, four layers. Cheapest first, so a successor can stop reading.",
+    kind: "artifact",
     text:
-      "architecture diagram pipeline adapters active branch ledgers mask segment chunk premap " +
-      "anchored fold typed ops validate state recency tail reconcile render handoff pointers",
+      "artifact layers L0 brief L1 continuation summary L2 ledgers L3 retrieval handoff.md " +
+      "handoff.json ledgers.json provenance.json state.json evt pointers quotes constraints",
   },
   {
     id: "trust",
     number: "07",
     title: "Why you can trust it",
     lead:
-      "Most compaction is a model reading a transcript and writing a paragraph. sctxx is built " +
-      "the other way round.",
+      "Most compaction is a model reading a transcript and writing a paragraph. ccompactor is " +
+      "built the other way round.",
     kind: "cards",
-    cards: [
-      {
-        kicker: "Deterministic first",
-        title: "Rust computes what can be computed",
-        body:
-          "Branch resolution, ledgers, masking, budgets, validation, rendering. A model only makes " +
-          "semantic judgments — and --llm none still produces a complete artifact.",
-      },
-      {
-        kicker: "Provenance",
-        title: "Every item cites its evidence",
-        body:
-          "Each claim carries the event range that justifies it, and sctxx expand prints those " +
-          "events back. Nothing is a claim you cannot check.",
-      },
-      {
-        kicker: "Verbatim quotes",
-        title: "Your rules, in your words",
-        body:
-          "A constraint attributed to you must quote a real message. An invented quote is rejected " +
-          "before it reaches the artifact, and the rejection is recorded in state.json.",
-      },
-      {
-        kicker: "Reconciliation",
-        title: "The repository wins",
-        body:
-          "After extraction, sctxx checks the artifact against your working tree with read-only " +
-          "git commands and marks anything stale or contradicted.",
-      },
-      {
-        kicker: "Privacy",
-        title: "Secrets never leave",
-        body:
-          "Redaction runs before any model call, again on the response, and again on the rendered " +
-          "artifact. No telemetry. --llm none makes no network call at all.",
-      },
-      {
-        kicker: "Safety",
-        title: "Transcripts are data, never instructions",
-        body:
-          "Nothing found in a session is executed. Every prompt fences transcript text and states " +
-          "it must not be followed. Agent CLIs used as backends run in an empty temp directory.",
-      },
-    ],
+    cards: trust,
     text:
-      "trust deterministic provenance verbatim quotes reconciliation privacy redaction security " +
-      "prompt injection",
+      "trust deterministic opt-in provenance pointers verbatim quotes verification privacy " +
+      "redaction secrets scope does not do compact mutate telemetry network",
   },
   {
-    id: "backends",
+    id: "benchmarks",
     number: "08",
-    title: "LLM backends",
-    lead: "The fold is optional and works with whatever you already have.",
-    kind: "backends",
+    title: "Benchmarks",
+    lead:
+      "A handoff benchmark with four arms, run against the same session by two different " +
+      "implementations. Including the column where ccompactor loses.",
+    kind: "benchmarks",
     text:
-      "llm backends none auto cli claude codex pi api anthropic openai compat openrouter deepseek " +
-      "ollama vllm lm studio api key subscription",
+      "benchmarks bench four arms none tail artifact retrieval accuracy 38 73 deep questions " +
+      "sctxx sister project rust honest comparison tokens measured",
   },
   {
-    id: "commands",
-    number: "09",
-    title: "Command reference",
-    lead: "Every command writes its payload to stdout and its progress to stderr.",
-    kind: "commands",
-    text: "commands list find show extract expand verify redact skill schema doctor flags",
-  },
-  {
-    id: "workflows",
-    number: "10",
-    title: "Worked examples",
-    lead: "Four things people actually do with this.",
-    kind: "workflows",
-    text: "examples workflows handoff across agents review contribute fixture ci",
-  },
-  {
-    id: "troubleshooting",
-    number: "11",
-    title: "Troubleshooting",
-    lead: "What the exit codes mean and what to do about them.",
+    id: "faq",
+    number: "08",
+    title: "FAQ",
+    lead: "The questions that come up first, answered without hedging.",
     kind: "faq",
-    text: "troubleshooting exit codes ambiguous not found no backend parse failure help",
+    text:
+      "faq questions does it replace compact mutate transcript bit identical node version " +
+      "secrets redaction offline network licence mit notice anthropic tui skill",
   },
 ];
 
 export const references = [
   {
-    grammar: "<ref> := [<agent>:]<selector>",
+    grammar: "<ref> := [<agent>:]<selector>   →   claude:7c1e8f82 · codex:last · pi:<id> · ./session.jsonl",
     rows: [
-      ["claude:7c1e8f82-…", "A full session id in the Claude Code store"],
-      ["codex:6f1a2b3c", "An id prefix, six characters or more"],
-      ["pi:last", "The most recent Pi session recorded in this directory"],
-      ["last:3", "The third most recent session, any provider"],
-      ["./transcript.jsonl", "A file path; the provider is detected from its content"],
-      ["7c1e8f82", "No prefix: every store is searched"],
+      ["claude:7c1e8f82", "An id prefix in the Claude Code store, six characters or more"],
+      ["claude:last", "The most recent Claude Code session for this project"],
+      ["codex:6f1a2b3c", "The same, in the Codex CLI store"],
+      ["pi:0193f2a1", "A Pi session id"],
+      ["last", "The most recent session, any provider"],
+      ["./transcript.jsonl", "A file path; the provider is read from the file itself"],
     ],
   },
 ];
 
 export const stores = [
   {
-    agent: "Claude Code",
+    agent: "Claude Code / OpenClaude",
     path: "~/.claude/projects/<encoded-cwd>/<session-id>.jsonl",
-    override: "CLAUDE_CONFIG_DIR, --claude-root",
-    notes: "Subagents live in <session-id>/subagents/ and attach with --include-sidechains.",
+    override: "CLAUDE_CONFIG_DIR",
+    notes: "The store most people already have. Session ids are the eight-character prefix.",
   },
   {
     agent: "Codex CLI",
     path: "~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<uuid>.jsonl",
-    override: "CODEX_HOME, --codex-root",
-    notes: "Also reads archived_sessions/ and zstd-compressed .jsonl.zst rollouts.",
+    override: "CODEX_HOME",
+    notes: "Reads archived sessions and zstd-compressed .jsonl.zst rollouts too.",
   },
   {
     agent: "Pi",
     path: "~/.pi/agent/sessions/--<encoded-path>--/<timestamp>_<session-id>.jsonl",
-    override: "--pi-root",
-    notes: "Session format v1 through v3, including branch summaries.",
+    override: "PI_ROOT",
+    notes: "Store format v1 through v3, including branch summaries.",
   },
 ];
 
@@ -326,258 +382,364 @@ export const layers = [
     title: "Brief",
     budget: "≤ 1,200 tokens",
     body:
-      "Goal, last user request, current step, next actions, hard constraints with verbatim " +
-      "quotes, dead ends, verify-first commands, and what changed in the repository since.",
+      "Known-broken at the end of the session, the goal, hard constraints quoted verbatim from " +
+      "the human, where the work was, what it committed, the last commands with their pass/fail, " +
+      "and the verify-first list. Designed to fit one screen.",
   },
   {
     tag: "L1",
-    title: "Items",
-    budget: "rest of --budget",
+    title: "Continuation summary",
+    budget: "opt-in",
     body:
-      "Every item with its id, confidence, verification status, and [evt a–b] pointers. Then the " +
-      "ledgers: files touched, last known command status, unresolved errors, the plan, git.",
+      "Model-written prose that picks the thread back up — or, with --llm none, an explicit notice " +
+      "that no model ran and that a missing fact should be read as unknown rather than as " +
+      "permission.",
   },
   {
     tag: "L2",
-    title: "Recency tail",
-    budget: "--tail, default 12k",
-    body: "The end of the session, near-verbatim. What the agent was actually doing when it stopped.",
+    title: "Ledgers",
+    budget: "deterministic, no model",
+    body:
+      "Files touched with their event ranges, commands and outcomes, error signatures with " +
+      "occurrence counts, commits, and a census of which tools the session actually used. This " +
+      "layer is the evidence the summary cannot replace.",
   },
   {
     tag: "L3",
     title: "Retrieval",
-    budget: "≤ 150 tokens",
-    body: "The source file and ready-to-run sctxx expand commands for the pointers that matter.",
+    budget: "index of what was dropped",
+    body:
+      "Every episode not carried verbatim, labelled with its event range and token cost, sampled " +
+      "across the whole session rather than truncated from the front — so a successor can ask for " +
+      "evt 41,000 even when the artifact never quoted it.",
   },
 ];
 
-export const artifactSample = `**Goal** (G1): Implement the manifest loader with five trust tiers,
-wire tiers into ModuleHost, and make TrustTier 3 enforce sandboxing. [evt 0–1, evt 12]
+export const artifactSample = `---
+schema: ccompactor.handoff/v1
+source: {agent: claude, session: 7c1e8f82, events: 103757, user_turns: 288}
+engine: deterministic+none
+llm: none
+constraints: {found: 3}
+---
 
-**Current step** (S2): Making TrustTier 3 actually sandboxed in ModuleHost.spawn.
-\`pnpm vitest run packages/ext-engine\` still fails: TypeError: Cannot read
-properties of undefined (reading 'capabilities') at module-host.ts:41:22. [evt 12–15]
+# Handoff: wire the trust tiers through ModuleHost
 
-**Next actions**
-1. (N3) Implement sandboxing enforcement for TrustTier 3, then re-run
-   \`pnpm vitest run packages/ext-engine\` until host.test.ts passes. [evt 12–15]
-2. (N2) In src/host/module-host.ts:41, resolve the capability set before spawn
-   and pass the resolved set, not the raw manifest. [evt 15]
+> ...treat it as a map, not as ground truth. Run the verify-first commands
+> before changing anything, treat "Hard constraints" as binding, and expand
+> any \`[evt a–b]\` pointer you need with \`ccompactor expand\`.
 
-**Hard constraints**
-- (C1) "Never auto-install extensions from the registry without asking me." [evt 0]
+## L0 · Brief
 
-**Don't retry**
-- (X1) Wiring the raw manifest into ModuleHost.spawn — spawn reads
-  manifest.capabilities, which is undefined. [evt 7–11]
+**Known-broken at the end of the session**
+- TypeError: Cannot read properties of undefined (reading 'capabilities') (×4) [evt 4122]
+
+**Goal** (from the first user message, not model-inferred): Implement the
+manifest loader with five trust tiers and make TrustTier 3 sandboxed. [evt 0]
+
+**Hard constraints** (standing instructions, quoted verbatim)
+- "Never auto-install extensions from the registry without asking me." [evt 41]
+
+**Where the work was**
+- \`packages/ext-engine\` — 31 touch(es)
+
+**Last commands**
+- \`pnpm vitest run packages/ext-engine\` — FAILED [evt 4381]
 
 **Verify first**
-- \`git status\` · \`git log --oneline -5\` · \`pnpm vitest run packages/ext-engine\``;
+- \`git status\`
+- \`git log --oneline -5\`
+
+## L1 · Continuation summary
+
+> No model ran, so there is no continuation summary. What follows is what
+> deterministic passes can prove — the ledgers. ...
+
+## L2 · Ledgers (deterministic, no model)
+
+### Files touched (31)
+### Commands (412, 9 failed)
+### Error signatures (6)
+
+## L3 · Retrieval
+
+Source: \`~/.claude/projects/-Users-me-app/7c1e8f82.jsonl\`
+
+Expand any pointer:
+\`\`\`sh
+ccompactor expand claude:7c1e8f82 <a>..<b> --context 3
+\`\`\`
+
+**Not carried verbatim** — 341 episode(s), 187,402 token(s), all reachable:
+- evt 0–118 · Set up the workspace and pick the manifest shape · 3,940
+- evt 4122–4381 · TrustTier 3 enforcement in ModuleHost.spawn · 4,110
+- (318 episode(s) between these are not listed; the ranges above are
+  contiguous, so any event index in 0–103756 can be asked for directly)`;
 
 export const artifactFiles = [
-  ["handoff.md", "The artifact. This is the one you read."],
-  ["handoff.json", "The same content, schema sctxx.handoff/v1."],
-  ["state.json", "Every item including superseded, resolved, and dropped ones, plus the operation audit trail."],
-  ["ledgers.json", "All deterministic records: files, commands, errors, plan, git."],
-  ["report.json", "Diagnostics, token counts, timings, backend warnings."],
+  ["handoff.md", "The artifact. This is the file a successor reads."],
+  ["handoff.json", "The same content as data, schema ccompactor.handoff/v1."],
+  ["ledgers.json", "Every deterministic record: files, commands, errors, commits, tool census."],
+  ["provenance.json", "Where the artifact came from, and the pointers back into the transcript."],
+  ["state.json", "The run's own state: what was found, what was dropped, and why."],
 ];
 
-export const backends = [
-  {
-    flag: "none",
-    needs: "nothing",
-    body:
-      "Deterministic artifact. Ledgers, recency tail, and next actions derived from the plan and " +
-      "failing commands. No network call is made.",
-  },
-  {
-    flag: "auto",
-    needs: "whatever is present",
-    body: "An API key if one is set, else an installed agent CLI, else none. The default.",
-    recommended: true,
-  },
-  {
-    flag: "cli:claude · cli:codex · cli:pi",
-    needs: "the agent installed",
-    body:
-      "Uses the subscription you already pay for. The subprocess runs in an empty temporary " +
-      "directory with tool use disabled, so it cannot touch your repository.",
-  },
-  {
-    flag: "api:anthropic · api:openai",
-    needs: "ANTHROPIC_API_KEY / OPENAI_API_KEY",
-    body: "Direct HTTP. Add a model with api:openai/gpt-4.1-mini.",
-  },
-  {
-    flag: "api:compat/<model>",
-    needs: "SCTXX_BASE_URL",
-    body:
-      "Any OpenAI-compatible endpoint: OpenRouter, DeepSeek, Ollama, vLLM, LM Studio. Set " +
-      "SCTXX_API_KEY too if the endpoint needs one.",
-  },
-];
+export const pipeline = {
+  inbound: [
+    { name: "Claude Code / OpenClaude", path: "~/.claude/projects" },
+    { name: "Codex CLI", path: "~/.codex/sessions" },
+    { name: "Pi", path: "~/.pi/agent/sessions" },
+  ],
+  stages: [
+    {
+      n: "01",
+      title: "Adapters parse",
+      who: "deterministic",
+      body:
+        "Three provider formats are decoded line by line into one event model, ignoring unknown " +
+        "fields and surviving malformed lines instead of failing the session.",
+    },
+    {
+      n: "02",
+      title: "Ledgers are built",
+      who: "deterministic",
+      body:
+        "Files touched, commands with outcomes, error signatures with counts, commits, and a tool " +
+        "census. No model has been mentioned yet, and none is needed.",
+    },
+    {
+      n: "03",
+      title: "Constraints are extracted",
+      who: "deterministic",
+      body:
+        "Standing instructions are pulled out by pattern and kept as verbatim quotes with the " +
+        "event they came from. A constraint is quoted, never paraphrased.",
+    },
+    {
+      n: "04",
+      title: "Secrets are redacted",
+      who: "deterministic",
+      body:
+        "Redaction runs before any model call and again on the rendered artifact, so a key that " +
+        "appears in the transcript does not appear in the handoff.",
+    },
+    {
+      n: "05",
+      title: "A model may write L1",
+      who: "opt-in",
+      body:
+        "Only here, and only with --llm api:anthropic, api:openai, or api:compat/<model>. Without " +
+        "it the artifact gets an explicit notice instead of an invented summary.",
+    },
+    {
+      n: "06",
+      title: "The artifact is rendered",
+      who: "deterministic",
+      body:
+        "L0 through L3 are written to .ccompactor/, every claim carrying the [evt a–b] pointer " +
+        "that justifies it.",
+    },
+  ],
+  caption:
+    "Everything except stage 05 is TypeScript with no network access. --llm none is not a " +
+    "degraded mode: it is the whole pipeline with the optional step switched off, and the " +
+    "4,050-token, 2-second run above was exactly that.",
+};
 
 export const commands = [
   {
-    name: "sctxx extract <ref>",
+    name: "ccompactor extract <ref>",
     summary: "The main command. Session in, handoff artifact out.",
     flags: [
-      ["--out <PATH>", "A directory writes all five files; .md or .json writes one"],
-      ["--llm <BACKEND>", "none, auto, cli:<agent>, api:<provider>[/<model>]"],
-      ["--focus \"<TEXT>\"", "What you want to do now; biases extraction"],
-      ["--mode fast|standard|full", "fast skips the premap pass"],
-      ["--budget / --tail", "Artifact and recency-tail token budgets"],
-      ["--repo <PATH>", "Repository to reconcile against"],
-      ["--strict", "Exit 7 if the repository contradicts the artifact"],
-      ["--include-sidechains", "Include subagent transcripts"],
-      ["--since-compact", "Start at the provider's last compaction boundary, using its summary as a low-trust seed"],
-      ["--redact strict", "Also mask emails, private IPs, high-entropy strings"],
-      ["--dry-run", "Print the plan and estimated tokens, then exit"],
+      ["--out <dir>", "Where the artifact goes. Default .ccompactor"],
+      ["--llm <mode>", "none | auto | api:anthropic | api:openai | api:compat/<model>"],
+      ["--focus <text>", "Bias the summary toward what you want to do now"],
+      ["--instructions <text>", "Extra instructions for the summary pass"],
+      ["--dry-run", "Plan the run and print it without writing anything"],
+      ["--any-project", "Ignore the project filter when resolving the ref"],
+      ["--json", "Emit the artifact as JSON on stdout"],
+      ["--quiet", "Suppress progress and diagnostics on stderr"],
     ],
   },
   {
-    name: "sctxx list / find",
-    summary: "Discover sessions across every store, newest first.",
+    name: "ccompactor handoff <ref> --to <agent>",
+    summary: "Extract, then open a target agent with the context preloaded.",
     flags: [
-      ["--agent claude|codex|pi", "One store only"],
-      ["--any-project", "Not just sessions recorded in this directory"],
-      ["--limit <N>", "How many to print"],
-      ["--json", "Machine-readable, for an agent to parse"],
+      ["--to claude|codex|pi", "Which agent continues the work"],
+      ["--run", "Launch it, rather than printing the launch command"],
+      ["--out <dir>", "Where the artifact goes. Default .ccompactor"],
+      ["--llm <mode>", "none | auto | api:<provider>"],
+      ["--any-project", "Ignore the project filter when resolving the ref"],
     ],
   },
   {
-    name: "sctxx show <ref>",
-    summary: "Print a session as raw JSON, masked rows, or canonical IR.",
+    name: "ccompactor list",
+    summary: "Sessions found in the agents' stores, newest first.",
     flags: [
-      ["--view raw|masked|ir", "masked is what a model would see"],
-      ["--range A..B", "Only these canonical event indices"],
-      ["--active-branch-only", "Skip rewound and abandoned branches"],
+      ["--agent <kind>", "Restrict to claude, codex, or pi"],
+      ["--project <path>", "Sessions belonging to this project. Defaults to cwd"],
+      ["--any-project", "Ignore the project filter"],
+      ["--limit <n>", "Show at most this many. Default 40"],
+      ["--json", "Machine-readable output on stdout"],
     ],
   },
   {
-    name: "sctxx expand <ref> <A..B>…",
-    summary: "Turn an [evt a–b] pointer back into the events behind it.",
-    flags: [["--context <N>", "Extra events on each side"]],
-  },
-  {
-    name: "sctxx verify <artifact>",
-    summary: "Re-check an existing artifact against the repository.",
+    name: "ccompactor find <query>",
+    summary: "Fuzzy search over session id, project, and the human's first message.",
     flags: [
-      ["--repo <PATH>", "Defaults to the artifact's recorded cwd"],
-      ["--strict", "Exit 7 on a contradiction"],
+      ["--agent <kind>", "Restrict to claude, codex, or pi"],
+      ["--project <path>", "Sessions belonging to this project"],
+      ["--any-project", "Ignore the project filter"],
+      ["--limit <n>", "Show at most this many. Default 20"],
+      ["--json", "Machine-readable output on stdout"],
     ],
   },
   {
-    name: "sctxx redact <path>",
-    summary: "Strip secrets from a session file, for contributing a fixture.",
+    name: "ccompactor resolve <ref>",
+    summary: "Say exactly what a reference points at, before you act on it.",
     flags: [
-      ["--strict", "Also emails, private IPs, high-entropy strings"],
-      ["--check", "Report what would be redacted; write nothing"],
-      ["--out <PATH>", "Write here instead of stdout"],
+      ["--any-project", "Ignore the project filter"],
+      ["--json", "Machine-readable output on stdout"],
     ],
   },
   {
-    name: "sctxx skill install",
-    summary: "Teach your agents when and how to call sctxx.",
+    name: "ccompactor expand <ref> <a>..<b>",
+    summary: "Print the events behind an [evt a–b] pointer, in exact pages.",
     flags: [
-      ["--target claude|codex|pi", "Repeatable; default is all"],
-      ["--scope user|project", "Where to write it"],
-      ["--force", "Overwrite a locally modified SKILL.md"],
+      ["--context <n>", "Extra events on each side. Default 0"],
+      ["--max-payload <tokens>", "Token ceiling per page. Default 4000"],
+      ["--page <n>", "Which page to print, 1-based. Default 1"],
+      ["--any-project", "Ignore the project filter"],
     ],
   },
   {
-    name: "sctxx doctor / schema",
-    summary: "What was detected on this machine; the published JSON Schemas.",
-    flags: [["sctxx schema handoff|state|ops|ir", "Print a contract"]],
-  },
-];
-
-export const workflows = [
-  {
-    title: "Hand a session from Claude Code to Codex",
-    body: "The original reason sctxx exists. Nothing provider-specific survives into the artifact.",
-    code: `# in the Claude Code project directory
-sctxx list --limit 5
-sctxx extract claude:7c1e8f82 --out .sctxx/
-
-# then, in Codex
-codex
-> read .sctxx/handoff.md and continue that work`,
+    name: "ccompactor verify <dir>",
+    summary: "Re-check an artifact: schema, quotes in the transcript, files on disk.",
+    flags: [
+      ["--strict", "Exit 7 when a quote cannot be found in the transcript"],
+      ["--json", "Machine-readable report on stdout"],
+    ],
   },
   {
-    title: "Recover a session that hit its context limit",
-    body:
-      "The agent compacted itself and lost detail. The file on disk still has everything, " +
-      "including what happened before the compaction boundary.",
-    code: `sctxx extract claude:last --out .sctxx/ --mode standard
-
-# the artifact marks the provider's own summary as low-trust
-# and re-derives the facts from the raw events`,
+    name: "ccompactor bench <refs...>",
+    summary: "Measure whether a handoff artifact actually hands anything off.",
+    flags: [
+      ["--arms <list>", "none,tail,artifact,retrieval. Default all four"],
+      ["--llm <mode>", "The backend that plays the successor agent"],
+      ["--brief / --deep / --recent <n>", "How many questions of each class"],
+      ["--expansions <n>", "Retrieval rounds allowed. Default 3"],
+      ["--out <dir>", "Write bench.json and bench.md here"],
+      ["--show-answers", "Print what the successor answered for each question"],
+    ],
   },
   {
-    title: "Run it with no API key and no network",
-    body:
-      "The deterministic artifact still names the files touched, the last command status, the " +
-      "unresolved errors, and the next actions from the plan.",
-    code: `sctxx extract codex:last --llm none --out .sctxx/
-sctxx extract codex:last --llm none --format json | jq '.ledgers.commands'`,
+    name: "ccompactor doctor",
+    summary: "Which agent stores and LLM backends were found on this machine.",
+    flags: [["--json", "Machine-readable output on stdout"]],
   },
   {
-    title: "Contribute a fixture without leaking anything",
-    body:
-      "Redaction is pattern matching, not a guarantee — always read the result before sharing it.",
-    code: `sctxx redact ~/.claude/projects/…/session.jsonl --check
-sctxx redact ~/.claude/projects/…/session.jsonl --strict --out fixture.jsonl
-# then read fixture.jsonl line by line`,
+    name: "ccompactor skill <action>",
+    summary: "Install, uninstall, or locate the Agent Skill your agents read.",
+    flags: [["install | uninstall | path", "The three actions"]],
   },
-];
-
-export const exitCodes = [
-  ["0", "Success", "—"],
-  ["1", "Unexpected error", "Read stderr; open an issue with the message"],
-  ["2", "Usage error", "Fix the arguments; sctxx --help lists them"],
-  ["3", "Ambiguous session reference", "The candidates are printed as JSON on stdout; pick one"],
-  ["4", "Session not found", "Run sctxx list, or sctxx doctor to see which stores were searched"],
-  ["5", "Too many unparseable lines", "The file may not be a session file, or the format changed"],
-  ["6", "No usable LLM backend", "Use --llm none, or sctxx doctor to see what was detected"],
-  ["7", "The repository contradicts the artifact", "Only with --strict; re-extract"],
+  {
+    name: "ccompactor --tui",
+    summary: "An interactive browser — filter, fuzzy search, extract, handoff.",
+    flags: [["--tui", "Open it. Built with Ink and React"]],
+  },
 ];
 
 export const faqs = [
   {
-    q: "sctxx found no sessions",
+    q: "Does it replace /compact inside a running agent?",
     a:
-      "Run sctxx doctor: it prints every directory that was searched and whether it exists. If " +
-      "your agent stores sessions elsewhere, pass --claude-root, --codex-root, or --pi-root.",
+      "No. ccompactor reads finished sessions from disk. It compacts the session you already had " +
+      "into something the next agent can continue from; it does not insert itself into a live " +
+      "context window.",
   },
   {
-    q: "My reference matched several sessions (exit 3)",
+    q: "Does it modify or delete my transcripts?",
     a:
-      "The candidate list is printed as JSON on stdout. Use a longer id prefix, or add an agent " +
-      "prefix such as claude: to search one store.",
+      "Never. The agent stores are opened read-only. The artifact is written to .ccompactor/ in " +
+      "your project, and that is the only thing ccompactor creates.",
   },
   {
-    q: "It says there is no LLM backend",
+    q: "Do I need an API key?",
     a:
-      "That is a notice, not a failure: the deterministic artifact is still written. To enable " +
-      "the fold, set an API key or install an agent CLI, then check sctxx doctor.",
+      "No. --llm none, and it produces a complete artifact with no model and no network. An API " +
+      "backend only adds the L1 continuation summary, which is prose on top of the ledgers the " +
+      "deterministic pass already produced.",
   },
   {
-    q: "The artifact is bigger than --budget",
+    q: "Which backends can write the L1 summary?",
     a:
-      "The recency tail is governed by --tail and is not counted in --budget. Lower --tail, or " +
-      "drop the layer entirely with --layers L0,L1,L3.",
+      "api:anthropic, api:openai, and api:compat/<model> for any OpenAI-compatible endpoint — " +
+      "OpenRouter, DeepSeek, Ollama, vLLM, LM Studio. Set the base URL for the compat form.",
   },
   {
-    q: "An item is marked stale or contradicted",
+    q: "What does ccompactor doctor tell me?",
     a:
-      "Reconciliation compared it against your working tree and they disagree. The repository is " +
-      "right. Expand the item's pointer to see what the session actually did.",
+      "Every agent store it looked for and whether it found one, plus the backends it can see. If " +
+      "list comes back empty, doctor is the command that explains why.",
   },
   {
-    q: "Can I read the raw session file myself?",
+    q: "How do I check an artifact is still true?",
     a:
-      "You can, with sctxx show --view masked, which is the same reduced view a model sees. " +
-      "Opening the .jsonl directly in an agent is what sctxx exists to avoid.",
+      "ccompactor verify <dir>. It re-reads the artifact without re-extracting: does the schema " +
+      "still hold, are the quoted constraints still in the transcript, do the files it names " +
+      "still exist. --strict makes a missing quote a non-zero exit.",
+  },
+  {
+    q: "What happens to secrets in the transcript?",
+    a:
+      "They are redacted before any model call and again in the rendered artifact. With --llm " +
+      "none nothing leaves the machine at all. Redaction is pattern matching, not a guarantee — " +
+      "read anything before you share it.",
+  },
+  {
+    q: "Is it a drop-in replacement for its sister project?",
+    a:
+      "It is the same architecture in a different language, and the two agree on behaviour rather " +
+      "than implementation. On the shared handoff benchmark the Rust original is currently ahead " +
+      "— that number is on this page, in the benchmarks section, on purpose.",
+  },
+  {
+    q: "What is the licence?",
+    a:
+      "MIT for ccompactor's own code. There is no Anthropic-derived code in the repository at " +
+      "all; NOTICE records exactly what was removed and why, and which published research the " +
+      "compaction design follows.",
   },
 ];
+
+export const footer = {
+  note:
+    "Heavy machinery for light context. ccompactor reads sessions; it never rewrites them.",
+  columns: [
+    {
+      label: "Project",
+      links: [
+        { text: "GitHub", href: REPO },
+        { text: "Releases", href: `${REPO}/releases` },
+        { text: "npm", href: NPM },
+      ],
+    },
+    {
+      label: "Docs",
+      links: [
+        { text: "Commands", href: "#commands" },
+        { text: "The artifact", href: "#artifact" },
+        { text: "Benchmarks", href: "#benchmarks" },
+        { text: "FAQ", href: "#faq" },
+      ],
+    },
+    {
+      label: "Elsewhere",
+      links: [
+        { text: "The sister project", href: SISTER },
+        { text: "MIT licence", href: `${REPO}/blob/main/LICENSE` },
+        { text: "NOTICE", href: NOTICE_URL },
+      ],
+    },
+  ],
+};
