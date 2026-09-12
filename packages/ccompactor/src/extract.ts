@@ -15,6 +15,7 @@ import { extractConstraints, type Constraint } from './triage.js'
 import { render, type Rendered } from './artifact/render.js'
 import { build, resolveAuto, selectionLabel, type Selection } from './llm/index.js'
 import { summarise } from './compact/engine.js'
+import { redact, summarize } from './redact.js'
 
 export interface ExtractOptions extends DiscoverOptions {
   outDir?: string
@@ -77,6 +78,7 @@ export async function extractSession(
     progress('summary', 'skipped: --llm none. The deterministic artifact is still complete.')
   }
 
+  const compactInput: { redactionCounts?: Record<string, number> } = {}
   const rendered = render({
     ir,
     ledgers,
@@ -85,6 +87,19 @@ export async function extractSession(
     ...(summary ? { summary } : {}),
     ...(options.focus ? { focus: options.focus } : {}),
   })
+
+  // Redacted again on the way out. Two passes over the same text is not
+  // redundancy: the first stops a secret reaching a provider, the second stops
+  // one reaching the disk, and they fail independently.
+  const markdown = redact(rendered.markdown)
+  const json = JSON.parse(redact(JSON.stringify(rendered.json)).text) as Record<string, unknown>
+  rendered.markdown = markdown.text
+  rendered.json = json
+  const redactionCounts = { ...markdown.counts, ...(compactInput.redactionCounts ?? {}) }
+  if (Object.keys(redactionCounts).length > 0) {
+    rendered.json['redaction'] = { counts: redactionCounts, summary: summarize(redactionCounts) }
+    progress('redact', `replaced ${summarize(redactionCounts)}`)
+  }
 
   const written: string[] = []
   if (!options.dryRun) {
@@ -121,6 +136,7 @@ export async function extractSession(
           schema: 'ccompactor.state/v1',
           engine,
           constraintsFound: constraints.length,
+          redaction: redactionCounts,
           diagnostics: ir.diagnostics,
         },
         null,

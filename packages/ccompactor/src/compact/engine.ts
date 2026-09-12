@@ -34,11 +34,14 @@ import type { SessionIR } from '../ir/types.js'
 import type { Constraint } from '../triage.js'
 import type { Backend } from '../llm/index.js'
 import { stripAnalysis } from '../artifact/render.js'
+import { redact } from '../redact.js'
 
 export interface CompactInput {
   ir: SessionIR
   ledgers: Ledgers
   constraints: Constraint[]
+  /** Filled in by the engine when it redacts, so the artifact can report it. */
+  redactionCounts?: Record<string, number>
 }
 
 export interface SummariseOptions {
@@ -73,7 +76,15 @@ export async function summariseWithContract(
   backend: Backend,
   options: SummariseOptions = {},
 ): Promise<string> {
-  const digest = buildDigest(input, options.budgetTokens ?? DEFAULT_SUMMARY_BUDGET)
+  // Redacted here, at the boundary, rather than at the call site: a request that
+  // leaves the process unredacted is a disclosure, and there is exactly one
+  // place where requests leave.
+  const raw = buildDigest(input, options.budgetTokens ?? DEFAULT_SUMMARY_BUDGET)
+  const { text: digest, counts } = redact(raw)
+  if (Object.keys(counts).length > 0) {
+    // Told, not silent: a redacted key looks like a key that was never there.
+    input.redactionCounts = counts
+  }
   const instructions = [options.focus, options.instructions].filter(Boolean).join('\n')
   const response = await backend.complete({
     system: SYSTEM_PROMPT,
