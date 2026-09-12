@@ -147,11 +147,21 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      # A release needs a tag. On a tag push that is the tag; on a manual run
+      # there is none, and passing an empty string is a 400 from the API rather
+      # than a sensible default — so the rehearsal gets its own throwaway tag and
+      # a draft, which is exactly what a rehearsal is for.
+      - name: tag
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dry-run-$(echo "${{ github.sha }}" | cut -c1-8)" >> "$GITHUB_OUTPUT"
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**
           generate_release_notes: true
           draft: ${{ inputs.dry_run }}
-          # On a tag push this is the tag; on a manual run there is none, and the
-          # release is a draft anyway.
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          tag_name: ${{ steps.tag.outputs.value }}
