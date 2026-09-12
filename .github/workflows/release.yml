@@ -59,6 +59,8 @@ jobs:
             asset: ccompactor-linux-arm64
             archive: tar.gz
             deb_arch: arm64
+          # `bun build --compile` appends `.exe` for windows targets by itself,
+          # whether or not the outfile already ends in one. Verified locally.
           - target: bun-windows-x64
             asset: ccompactor-windows-x64
             archive: zip
@@ -89,11 +91,14 @@ jobs:
           echo "${{ github.ref_name }}" > dist/VERSION
       - name: archive
         run: |
+          set -e
           cd dist
+          BIN="${{ matrix.asset }}${{ matrix.ext }}"
+          test -f "$BIN" || { echo "expected $BIN, found:"; ls -la; exit 1; }
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            zip -q "${{ matrix.asset }}.zip" "${{ matrix.asset }}${{ matrix.ext }}" VERSION
+            zip -q "${{ matrix.asset }}.zip" "$BIN" VERSION
           else
-            tar -czf "${{ matrix.asset }}.tar.gz" "${{ matrix.asset }}${{ matrix.ext }}" VERSION
+            tar -czf "${{ matrix.asset }}.tar.gz" "$BIN" VERSION
           fi
       - name: deb
         if: matrix.deb_arch != ''

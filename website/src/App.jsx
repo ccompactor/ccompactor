@@ -1,26 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
-// Vite resolves this to a hashed URL at build time, so the diagram ships with the
-// site rather than depending on a path that happens to be served.
-import architectureImg from "./assets/img/sctxx_context_extraction_architecture.jpg";
+// Vite resolves the logo to a hashed URL at build time, so the mark ships with
+// the site rather than depending on a path that happens to be served.
+import logo from "./assets/img/ccompactor-logo.png";
 import { apply, readPreference, watchSystem } from "./theme.js";
 import {
-  CRATE,
+  NPM,
   REPO,
+  SISTER,
   VERSION,
-  architecture,
   artifactFiles,
   artifactSample,
-  backends,
+  benchmarks,
+  caution,
   commands,
-  exitCodes,
   faqs,
+  footer,
   hero,
+  install,
   layers,
+  pipeline,
   proof,
   references,
   sections,
   stores,
-  workflows,
 } from "./content.js";
 
 /** A code block with a copy button that confirms what it did. */
@@ -47,6 +49,39 @@ function Code({ children, compact = false }) {
   );
 }
 
+/** The tiny copy button in the hero's install one-liner. */
+function CopyInline({ text }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1400);
+      },
+      () => setCopied(false),
+    );
+  };
+  return (
+    <button className="copy-inline" onClick={copy} type="button">
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
+  );
+}
+
+/** The logo, sized by the caller. Kept in one place so the alt text is one string. */
+function Logo({ className }) {
+  return (
+    <img
+      className={className}
+      src={logo}
+      alt="ccompactor: a hard-hat excavator crushing a session transcript into a small block"
+      width="1024"
+      height="1024"
+      decoding="async"
+    />
+  );
+}
+
 function SectionHeading({ number, title, lead }) {
   return (
     <div className="section-heading">
@@ -56,6 +91,23 @@ function SectionHeading({ number, title, lead }) {
         <p>{lead}</p>
       </div>
     </div>
+  );
+}
+
+/** The caution ribbon: a hazard-striped band for the disclosure that has to be read. */
+function CautionRibbon({ data }) {
+  return (
+    <aside className="ribbon" aria-label="Benchmark disclosure">
+      <div className="ribbon-stripes" aria-hidden="true" />
+      <div className="ribbon-body">
+        <span className="ribbon-label">{data.label}</span>
+        <h3>{data.title}</h3>
+        <p>{data.body}</p>
+        <a className="ribbon-link" href={data.href}>
+          {data.linkText} →
+        </a>
+      </div>
+    </aside>
   );
 }
 
@@ -78,7 +130,7 @@ function Steps({ steps }) {
     <div className="step-list">
       {steps.map((step, index) => (
         <div className="step" key={step.title}>
-          <span className="step-number">{index + 1}</span>
+          <span className="step-number">{String(index + 1).padStart(2, "0")}</span>
           <div className="step-body">
             <h3>{step.title}</h3>
             <p>{step.body}</p>
@@ -90,29 +142,17 @@ function Steps({ steps }) {
   );
 }
 
-function Prompts({ prompts }) {
-  return (
-    <div className="prompt-list">
-      {prompts.map((prompt) => (
-        <div className="prompt" key={prompt.say}>
-          <div className="prompt-say">
-            <span className="prompt-label">you say</span>
-            <p>“{prompt.say}”</p>
-          </div>
-          <div className="prompt-runs">
-            <span className="prompt-label">the agent runs</span>
-            <code>{prompt.runs}</code>
-            <span className="prompt-note">{prompt.note}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ReferenceSection() {
+/**
+ * Install methods, plus the session-reference grammar and the stores.
+ *
+ * Both tables used to live under "supported agents"; the reference grammar is
+ * what a reader needs while typing a command, so it belongs next to the
+ * install instructions that produced the command.
+ */
+function AgentsSection() {
   return (
     <>
+      <h3 className="sub-heading">Naming a session</h3>
       {references.map((reference) => (
         <div key={reference.grammar}>
           <Code compact>{reference.grammar}</Code>
@@ -139,17 +179,18 @@ function ReferenceSection() {
         </div>
       ))}
       <p className="note">
-        Without an agent prefix every store is searched. If the id matches more than one session,
-        sctxx exits <code>3</code> and prints the candidates as JSON on stdout, so an agent can
-        show them to you instead of guessing.
+        Without an agent prefix every store is searched. If a reference matches more than one
+        session, <code>ccompactor</code> exits <code>3</code> and prints the candidates as JSON on
+        stdout, so a script can show them instead of guessing.
       </p>
+
       <h3 className="sub-heading">Where the files live</h3>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Agent</th>
-              <th>Path</th>
+              <th>Store</th>
               <th>Override</th>
             </tr>
           </thead>
@@ -176,18 +217,49 @@ function ReferenceSection() {
 }
 
 /**
- * The architecture diagram.
+ * The pipeline, drawn in markup rather than shipped as an image.
  *
- * A figure, not a decoration: the caption carries the one fact the picture
- * cannot show (which stages may call a model), and the alt text is the whole
- * pipeline in words for a reader who cannot see it.
+ * Six stages, each labelled with who does the work — "deterministic" or
+ * "opt-in" — because that distinction is the whole argument of the tool. The
+ * caption carries what the picture cannot show.
  */
-function ArchitectureSection() {
+function PipelineSection() {
   return (
-    <figure className="architecture">
-      <img src={architectureImg} alt={architecture.alt} loading="lazy" />
-      <figcaption>{architecture.caption}</figcaption>
-    </figure>
+    <div className="pipeline">
+      <div className="pipeline-in row-scroll">
+        {pipeline.inbound.map((agent) => (
+          <div className="pipeline-source" key={agent.name}>
+            <strong>{agent.name}</strong>
+            <code>{agent.path}</code>
+          </div>
+        ))}
+      </div>
+
+      <div className="pipeline-merge" aria-hidden="true">
+        <span>▾</span>
+        <span>▾</span>
+        <span>▾</span>
+      </div>
+
+      <ol className="pipeline-stages">
+        {pipeline.stages.map((stage) => (
+          <li
+            className={stage.who === "opt-in" ? "pipeline-stage opt-in" : "pipeline-stage"}
+            key={stage.n}
+          >
+            <span className="stage-number">{stage.n}</span>
+            <div>
+              <h3>
+                {stage.title} <em className="stage-who">{stage.who}</em>
+              </h3>
+              <p>{stage.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <p className="pipeline-caption">{pipeline.caption}</p>
+    </div>
   );
 }
 
@@ -207,10 +279,12 @@ function ArtifactSection() {
           </div>
         ))}
       </div>
+
       <h3 className="sub-heading">An excerpt from a real run</h3>
       <Code>{artifactSample}</Code>
+
       <h3 className="sub-heading">
-        <code>--out .sctxx/</code> writes five files
+        <code>--out .ccompactor</code> writes five files
       </h3>
       <div className="table-wrap">
         <table>
@@ -233,25 +307,6 @@ function ArtifactSection() {
         </table>
       </div>
     </>
-  );
-}
-
-function Backends() {
-  return (
-    <div className="backend-list">
-      {backends.map((backend) => (
-        <div
-          className={backend.recommended ? "backend recommended" : "backend"}
-          key={backend.flag}
-        >
-          <div className="backend-head">
-            <code>{backend.flag}</code>
-            <span>{backend.needs}</span>
-          </div>
-          <p>{backend.body}</p>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -280,54 +335,116 @@ function Commands() {
   );
 }
 
-function Workflows() {
-  return (
-    <div className="workflow-list">
-      {workflows.map((workflow) => (
-        <div className="workflow" key={workflow.title}>
-          <h3>{workflow.title}</h3>
-          <p>{workflow.body}</p>
-          <Code>{workflow.code}</Code>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Faq() {
+/**
+ * The benchmark section, including the column ccompactor loses.
+ *
+ * The verdict is a sentence, not a chart: a reader should not have to compute
+ * "which number is bigger" from a bar.
+ */
+function BenchmarksSection() {
   return (
     <>
+      <div className="verdict">
+        <span className="verdict-tag">The verdict</span>
+        <p>
+          On the shared handoff benchmark, the Rust sister project is ahead of ccompactor — in the
+          headline class and especially on deep questions. ccompactor's retrieval index tells a
+          successor which ranges exist, and it is not yet good enough at it.
+        </p>
+      </div>
+
+      <div className="score-grid">
+        {benchmarks.headline.map(([label, ours, theirs]) => (
+          <div className="score" key={label}>
+            <span className="score-label">{label}</span>
+            <div className="score-row">
+              <div className="score-cell ours">
+                <span>ccompactor</span>
+                <strong>{ours}</strong>
+              </div>
+              <div className="score-cell theirs">
+                <span>sctxx (Rust)</span>
+                <strong>{theirs}</strong>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <dl className="bench-meta">
+        {benchmarks.meta.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <h3 className="sub-heading">The four arms</h3>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Exit</th>
-              <th>Meaning</th>
-              <th>What to do</th>
+              <th>Arm</th>
+              <th>What the successor is given</th>
+              <th>Why it is in the table</th>
             </tr>
           </thead>
           <tbody>
-            {exitCodes.map(([code, meaning, action]) => (
-              <tr key={code}>
+            {benchmarks.arms.map((row) => (
+              <tr key={row.arm}>
                 <td>
-                  <code>{code}</code>
+                  <code>{row.arm}</code>
                 </td>
-                <td>{meaning}</td>
-                <td>{action}</td>
+                <td>{row.what}</td>
+                <td>{row.why}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="faq-list">
-        {faqs.map((faq) => (
-          <details key={faq.q}>
-            <summary>{faq.q}</summary>
-            <p>{faq.a}</p>
-          </details>
-        ))}
+
+      <div className="card callout">
+        <div className="card-kicker">Measured, then removed</div>
+        <h3>{benchmarks.removed.title}</h3>
+        <p>{benchmarks.removed.body}</p>
       </div>
+
+      <h3 className="sub-heading">Reproduce it</h3>
+      <Code>{benchmarks.reproduce}</Code>
+      <p className="note">
+        The benchmark is a port of the one shipped with the sister project, so the two tools'
+        numbers are comparable. A benchmark you only win is not a benchmark — the losing number
+        is on this page because removing it would make the winning one meaningless.
+      </p>
     </>
+  );
+}
+
+function Faq() {
+  return (
+    <div className="faq-list">
+      {faqs.map((faq) => (
+        <details key={faq.q}>
+          <summary>{faq.q}</summary>
+          <p>{faq.a}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function InstallSection() {
+  return (
+    <div className="install-list">
+      {install.methods.map((method) => (
+        <div className="install" key={method.title}>
+          <h3>{method.title}</h3>
+          <p>{method.body}</p>
+          <Code compact>{method.code}</Code>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -337,20 +454,18 @@ function SectionBody({ section }) {
       return <Cards cards={section.cards} />;
     case "steps":
       return <Steps steps={section.steps} />;
-    case "prompts":
-      return <Prompts prompts={section.prompts} />;
     case "reference":
-      return <ReferenceSection />;
-    case "artifact":
-      return <ArtifactSection />;
-    case "architecture":
-      return <ArchitectureSection />;
-    case "backends":
-      return <Backends />;
+      return <AgentsSection />;
     case "commands":
       return <Commands />;
-    case "workflows":
-      return <Workflows />;
+    case "architecture":
+      return <PipelineSection />;
+    case "artifact":
+      return <ArtifactSection />;
+    case "install":
+      return <InstallSection />;
+    case "benchmarks":
+      return <BenchmarksSection />;
     case "faq":
       return <Faq />;
     default:
@@ -366,7 +481,7 @@ function matches(section, query) {
     section.title,
     section.lead,
     section.text,
-    JSON.stringify(section.cards ?? section.steps ?? section.prompts ?? ""),
+    JSON.stringify(section.cards ?? section.steps ?? ""),
   ]
     .join(" ")
     .toLowerCase();
@@ -464,23 +579,29 @@ export default function App() {
 
   return (
     <>
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
+
+      <div className="hazard-bar" aria-hidden="true" />
+
       <header className="topbar">
         <div className="wrap topbar-inner">
           <a className="brand" href="#top">
-            <span className="brand-mark">sx</span>
-            <span>sctxx</span>
+            <Logo className="brand-logo" />
+            <span className="brand-name">ccompactor</span>
             <span className="version">v{VERSION}</span>
           </a>
-          <nav className="top-links">
+          <nav className="top-links" aria-label="Primary">
+            <a href="#install">Install</a>
             <a href="#quickstart">Quick start</a>
-            <a href="#prompts">Prompts</a>
             <a href="#commands">Commands</a>
-            <a href="#troubleshooting">Troubleshooting</a>
+            <a href="#benchmarks">Benchmarks</a>
           </nav>
           <div className="top-actions">
             <ThemeSwitch preference={theme} onChange={setTheme} />
             <label className="search compact-search">
-              <span>⌕</span>
+              <span aria-hidden="true">⌕</span>
               <input
                 id="docsearch"
                 type="search"
@@ -504,6 +625,7 @@ export default function App() {
               onClick={() => setMenuOpen((open) => !open)}
               type="button"
               aria-label="Menu"
+              aria-expanded={menuOpen}
             >
               ☰
             </button>
@@ -512,12 +634,13 @@ export default function App() {
         {menuOpen && (
           <div className="mobile-search">
             <label className="search">
-              <span>⌕</span>
+              <span aria-hidden="true">⌕</span>
               <input
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search docs…"
+                aria-label="Search documentation"
               />
             </label>
             {sections.map((section) => (
@@ -532,7 +655,8 @@ export default function App() {
       <div className="layout wrap" id="top">
         <aside className="sidebar">
           <div className="side-group">
-            <div className="side-label">Documentation</div>
+            <div className="side-label">On this page</div>
+            <a href="#install">Install</a>
             {sections.map((section) => (
               <a
                 key={section.id}
@@ -548,37 +672,56 @@ export default function App() {
             <a href={REPO} target="_blank" rel="noreferrer">
               Source ↗
             </a>
-            <a href={CRATE} target="_blank" rel="noreferrer">
-              crates.io ↗
+            <a href={NPM} target="_blank" rel="noreferrer">
+              npm ↗
             </a>
             <a href={`${REPO}/releases`} target="_blank" rel="noreferrer">
               Releases ↗
             </a>
+            <a href={SISTER} target="_blank" rel="noreferrer">
+              The Rust sister ↗
+            </a>
           </div>
           <div className="side-meta">
-            <a href={REPO}>handyutils/sctxx</a>
-            <span>Apache-2.0</span>
+            <a href={REPO}>ccompactor/ccompactor</a>
+            <span>MIT · TypeScript</span>
           </div>
         </aside>
 
-        <main className="content">
+        <main className="content" id="content">
           <section className="hero">
-            <div className="eyebrow">{hero.eyebrow}</div>
-            <h1>
-              {hero.title[0]}
-              <br />
-              {hero.title[1]}
-              <br />
-              <em>{hero.title[2]}</em>
-            </h1>
-            <p>{hero.lead}</p>
-            <div className="hero-actions">
-              <a className="button button-light" href="#quickstart">
-                Get started →
-              </a>
-              <a className="button button-ghost" href={REPO} target="_blank" rel="noreferrer">
-                View source
-              </a>
+            <div className="hero-main">
+              <div className="eyebrow">{hero.eyebrow}</div>
+              <h1>
+                {hero.title[0]}
+                <br />
+                {hero.title[1]}
+                <br />
+                <em>{hero.title[2]}</em>
+              </h1>
+              <p className="hero-tagline">{hero.taglines[0]}</p>
+              <p className="hero-lead">{hero.lead}</p>
+              <div className="hero-actions">
+                <a className="button button-yellow" href="#install">
+                  Get started →
+                </a>
+                <a className="button button-ghost" href={REPO} target="_blank" rel="noreferrer">
+                  View source
+                </a>
+              </div>
+              <div className="hero-install">
+                <span className="hero-install-label">Install</span>
+                <code>{hero.install}</code>
+                <CopyInline text={hero.install} />
+              </div>
+              <ul className="hero-taglines">
+                {hero.taglines.slice(1).map((tagline) => (
+                  <li key={tagline}>{tagline}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="hero-art">
+              <Logo className="hero-logo" />
             </div>
             <div className="hero-grid">
               {hero.facts.map((fact) => (
@@ -595,7 +738,9 @@ export default function App() {
               <span className="proof-label">In</span>
               <strong>{proof.before}</strong>
             </div>
-            <div className="proof-arrow">→</div>
+            <div className="proof-arrow" aria-hidden="true">
+              →
+            </div>
             <div className="proof-side">
               <span className="proof-label">Out</span>
               <strong>{proof.after}</strong>
@@ -603,6 +748,8 @@ export default function App() {
             <div className="proof-time">{proof.time}</div>
             {proof.note && <p className="proof-note">{proof.note}</p>}
           </section>
+
+          <CautionRibbon data={caution} />
 
           {query && (
             <div className="result-bar">
@@ -614,6 +761,15 @@ export default function App() {
               </button>
             </div>
           )}
+
+          <section className="doc-section" id="install">
+            <SectionHeading
+              number="00"
+              title="Install"
+              lead="One command on a machine with Node, or a single binary on one without."
+            />
+            <InstallSection />
+          </section>
 
           {visible.map((section) => (
             <section className="doc-section" id={section.id} key={section.id}>
@@ -628,52 +784,129 @@ export default function App() {
 
           {query && visible.length === 0 && (
             <div className="empty">
-              Nothing matched “{query}”. Try “session id”, “backend”, or “exit code”.
+              Nothing matched “{query}”. Try “extract”, “provenance”, or “benchmark”.
             </div>
           )}
 
+          <section className="doc-section" id="does-not">
+            <SectionHeading
+              number="09"
+              title="What it does not do"
+              lead="The limits, stated before someone discovers them in production."
+            />
+            <div className="cards two-col">
+              <article className="card">
+                <div className="card-kicker">Not a live compactor</div>
+                <h3>It does not replace /compact</h3>
+                <p>
+                  ccompactor reads finished sessions. It does not sit inside a running agent's
+                  context window or shrink it as you go.
+                </p>
+              </article>
+              <article className="card">
+                <div className="card-kicker">Read-only on your data</div>
+                <h3>It never mutates a transcript</h3>
+                <p>
+                  The agent stores are opened for reading only. The artifact is the single thing
+                  ccompactor writes, and it writes it into your project.
+                </p>
+              </article>
+              <article className="card">
+                <div className="card-kicker">No parity claim</div>
+                <h3>It is not bit-identical to Claude Code</h3>
+                <p>
+                  The nine-section compaction contract is implemented from its published
+                  description. Behaviour agrees with its sister project; implementation does not,
+                  and no Claude Code source is involved.
+                </p>
+              </article>
+              <article className="card">
+                <div className="card-kicker">Behind, in public</div>
+                <h3>It loses one benchmark</h3>
+                <p>
+                  The handoff benchmark is run by both implementations and ccompactor is behind on
+                  retrieval accuracy. The numbers and the reason are in{" "}
+                  <a href="#benchmarks">Benchmarks</a>, not in a footnote.
+                </p>
+              </article>
+            </div>
+          </section>
+
           <section className="doc-section" id="provenance">
             <SectionHeading
-              number="11"
+              number="10"
               title="Licence and provenance"
-              lead="What sctxx is built from, and what it is not."
+              lead="What ccompactor is built from, and what it is not."
             />
             <p className="note">
-              sctxx is Apache-2.0. It includes code derived from{" "}
-              <a href="https://github.com/openai/codex" target="_blank" rel="noreferrer">
-                OpenAI Codex
+              ccompactor's own code is <strong>MIT</strong>. It contains no code derived from
+              Anthropic's Claude Code CLI and no code from any fork of it; the{" "}
+              <a href={`${REPO}/blob/main/NOTICE`} target="_blank" rel="noreferrer">
+                NOTICE
               </a>{" "}
-              (Apache-2.0) at commit <code>818f1cc</code>: UTF-8-safe truncation, secret
-              redaction, tiered evidence budgeting, rollback-aware replay, and the{" "}
-              <code>apply_patch</code> header grammar. Each ported file carries its attribution
-              header, and <code>src/vendor/codex/README.md</code> is the manifest.
+              file records exactly what was removed and why, and the guard that stops it coming
+              back.
             </p>
             <p className="note">
-              sctxx is not affiliated with or endorsed by OpenAI or Anthropic. The Claude Code
-              adapter is clean-room: written from on-disk session files, public documentation, and
-              contributed fixtures only.
+              The product framing — cross-agent handoff, provenance on every claim, a verify step,
+              layered artifacts — follows the Rust sister project{" "}
+              <a href={SISTER} target="_blank" rel="noreferrer">
+                sctxx
+              </a>{" "}
+              by the same author. None of its code is used: the two agree on behaviour rather than
+              implementation, the handoff benchmark is a port, and the comparison is published
+              including the column where ccompactor is behind.
+            </p>
+            <p className="note">
+              ccompactor is not affiliated with or endorsed by Anthropic or OpenAI. It is an
+              independent tool that reads files those programs leave on your disk.
             </p>
             <div className="link-grid">
               <a href={REPO} target="_blank" rel="noreferrer">
                 <span>Source code</span>
                 <strong>GitHub ↗</strong>
               </a>
-              <a href={CRATE} target="_blank" rel="noreferrer">
+              <a href={NPM} target="_blank" rel="noreferrer">
                 <span>Published package</span>
-                <strong>crates.io ↗</strong>
+                <strong>npm ↗</strong>
               </a>
-              <a href={`${REPO}/blob/main/docs/SCTXX-SPEC.md`} target="_blank" rel="noreferrer">
-                <span>Architecture</span>
-                <strong>Specification ↗</strong>
+              <a href={SISTER} target="_blank" rel="noreferrer">
+                <span>Same idea, in Rust</span>
+                <strong>sctxx ↗</strong>
               </a>
             </div>
           </section>
 
-          <footer>
-            <span>
-              © 2026 <a href={REPO}>handyutils/sctxx</a>
-            </span>
-            <span>Apache-2.0 · Rust · React · GitHub Pages</span>
+          <footer className="site-footer">
+            <div className="footer-brand">
+              <Logo className="footer-logo" />
+              <div>
+                <strong>ccompactor</strong>
+                <p>{footer.note}</p>
+              </div>
+            </div>
+            <div className="footer-columns">
+              {footer.columns.map((column) => (
+                <div key={column.label}>
+                  <span className="footer-label">{column.label}</span>
+                  {column.links.map((link) => (
+                    <a
+                      key={link.text}
+                      href={link.href}
+                      {...(link.href.startsWith("#")
+                        ? {}
+                        : { target: "_blank", rel: "noreferrer" })}
+                    >
+                      {link.text} {link.href.startsWith("#") ? "" : "↗"}
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="footer-base">
+              <span>© 2026 ccompactor contributors</span>
+              <span>MIT · TypeScript · React · GitHub Pages</span>
+            </div>
           </footer>
         </main>
       </div>
