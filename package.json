@@ -10,10 +10,13 @@
   },
   "scripts": {
     "build": "npm run build --workspace ccompactor",
+    "watch": "npm run watch --workspace ccompactor",
+    "dev": "npm run build --silent && node packages/ccompactor/dist/cli.js",
     "test": "npm run test --workspace ccompactor",
     "typecheck": "npm run typecheck --workspace ccompactor",
     "ccompactor": "node packages/ccompactor/dist/cli.js",
     "link": "npm run build && npm link --workspace ccompactor",
+    "unlink": "npm uninstall -g ccompactor",
     "clean": "rm -rf packages/ccompactor/dist packages/ccompactor/dist-test"
   },
   "devDependencies": {

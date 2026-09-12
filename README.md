@@ -25,13 +25,15 @@ npm i -g ccompactor     # the tool
 ccompactor doctor
 ```
 
-Or from source:
+Or from source, to work on it:
 
 ```sh
 npm install          # workspaces; installs commander, ink and react
-npm run build        # tsc → packages/ccompactor/dist
-npm run link         # makes `ccompactor` a global command
+npm run link         # builds, then points `ccompactor` at this checkout
+npm run dev -- doctor   # build and run in one step
 ```
+
+See [DEVELOPING.md](DEVELOPING.md) for the loop, the checks and how to try it on real sessions.
 
 Standalone binaries (no Node needed) for macOS arm64/x64, Linux x64/arm64 with a `.deb`, and
 Windows x64/arm64 are attached to each

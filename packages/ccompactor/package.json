@@ -27,11 +27,12 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --experimental-strip-types src/cli.ts",
+    "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "dev": "npm run build --silent && node dist/cli.js",
     "test": "tsc -p tsconfig.test.json && cd dist-test && node --test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build",
-    "prepack": "node scripts/guard-vendor.mjs"
+    "prepack": "node scripts/guard-vendor.mjs",
+    "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build"
   },
   "dependencies": {
     "commander": "^13.1.0",
