@@ -24,6 +24,7 @@ program
   .option('--json', 'machine-readable output on stdout')
   .option('--quiet', 'suppress progress and diagnostics on stderr')
   .option('--tui', 'open the interactive browser')
+  .option('--out <dir>', 'output directory', '.ccompactor')
   .showHelpAfterError()
 
 function note(message: string): void {
@@ -330,7 +331,12 @@ async function main(): Promise<number> {
   }
   if (program.opts()['tui'] || argv[0] === '--tui') {
     const { runTui } = await import('./tui/index.js')
-    return runTui({ outDir: '.ccompactor', anyProject: true })
+    // The global flag was documented and ignored: the TUI always wrote to
+    // `.ccompactor`, so `--out /tmp/x` silently went to the working directory.
+    return runTui({
+      outDir: program.opts()['out'] ?? '.ccompactor',
+      anyProject: true,
+    })
   }
   try {
     await program.parseAsync(process.argv)

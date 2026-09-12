@@ -32,7 +32,22 @@ jobs:
       - run: npm run build
       # Refuses while any upstream-derived code is present. See NOTICE.
       - run: node packages/ccompactor/scripts/guard-vendor.mjs
+      # A re-run of a release whose version is already on the registry is a
+      # skip, not a failure. Without this, re-running the workflow to rebuild
+      # binaries for an existing version reports the whole release as broken.
+      - name: already published?
+        id: published
+        working-directory: packages/ccompactor
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "ccompactor@$VERSION" version >/dev/null 2>&1; then
+            echo "value=yes" >> "$GITHUB_OUTPUT"
+            echo "ccompactor@$VERSION is already on npm; skipping publish"
+          else
+            echo "value=no" >> "$GITHUB_OUTPUT"
+          fi
       - name: publish
+        if: steps.published.outputs.value == 'no'
         working-directory: packages/ccompactor
         run: npm publish --access public --provenance
         env:
