@@ -29,6 +29,14 @@
   and `dist/` is what `files` actually puts in the tarball — a guard that checks the first would
   happily publish the second.
 
+### Added
+
+- **An episode index in L3.** The artifact now lists every episode it did not carry verbatim —
+  event range, headline, size — so a reader who can ask for more knows *what* to ask for. This was
+  the entire head-to-head gap against sctxx on the same sessions: same arms, same questions, same
+  backend, and retrieval scored 38% against 69% purely because sctxx's artifact named the ranges and
+  ccompactor's did not.
+
 ### Fixed
 
 - **`verify` reported every quote as missing.** It compared the artifact's cleaned, whitespace-

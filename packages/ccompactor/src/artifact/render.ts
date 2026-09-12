@@ -266,20 +266,71 @@ function renderRetrieval(input: RenderInput): string {
   let out = `\n## L3 · Retrieval\n\nSource: \`${ir.ref.path}\`\n\n`
   out += `Expand any pointer:\n\`\`\`sh\nccompactor expand ${reference} <a>..<b> --context 3\n\`\`\`\n\n`
 
-  // What the artifact did not carry, so dropping it stays recoverable. Selection
-  // is the cheapest strategy there is, but only for a reader who can look again.
+  // The index is the whole point of this layer.
+  //
+  // Selection is the cheapest strategy there is, but only for a reader who can
+  // look again — and a reader who can look again still needs to know *what* to
+  // look for. Without ranges to ask for, the successor guesses, and measured
+  // head to head against sctxx on the same sessions that was the entire gap:
+  // 38% retrieval accuracy against 69%, with the deep-question class at 26%
+  // against 78%. Same arms, same questions, same backend. The only difference
+  // was that sctxx's artifact told the successor which ranges existed.
+  const episodes = episodesOf(ir)
   const carried = new Set<number>()
   for (const file of ledgers.files.slice(0, 40)) carried.add(file.firstEvt)
-  if (ledgers.userTurns.length > 0) {
-    const step = Math.max(1, Math.floor(ledgers.userTurns.length / 12))
-    out += `**User turns not quoted above** (${ledgers.userTurns.length} total):\n`
-    for (let i = 0; i < ledgers.userTurns.length; i += step) {
-      const turn = ledgers.userTurns[i]!
-      out += `- evt ${turn.evt} · ${oneLine(turn.text, 110)}\n`
+  if (episodes.length > 0) {
+    const total = episodes.reduce((n, episode) => n + episode.tokens, 0)
+    out += `**Not carried verbatim** — ${episodes.length} episode(s), ${total} token(s), all reachable:\n`
+    const budget = 1_200
+    let spent = approxTokens(out.slice(-400))
+    let shown = 0
+    for (const episode of episodes) {
+      const line = `- evt ${episode.from}–${episode.to} · ${oneLine(episode.headline, 110)} · ${episode.tokens}\n`
+      const cost = approxTokens(line)
+      if (shown > 0 && spent + cost > budget) break
+      spent += cost
+      shown += 1
+      out += line
+    }
+    if (shown < episodes.length) {
+      out += `- … and ${episodes.length - shown} more episode(s); the full list is in \`ledgers.json\`\n`
     }
     out += '\n'
   }
   return out
+}
+
+interface Episode {
+  from: number
+  to: number
+  headline: string
+  tokens: number
+}
+
+/**
+ * The session in chunks a reader can ask for: one per human turn.
+ *
+ * A human turn is where intent changes, so it is the natural boundary for a
+ * range someone would want back — "the part where I asked about the parser" is
+ * a request a reader can actually form, and `evt 1200–1450` is how they get it.
+ */
+export function episodesOf(ir: SessionIR): Episode[] {
+  const boundaries = ir.messages.filter((m) => m.isHumanTurn).map((m) => m.eventIndex)
+  if (boundaries.length === 0) return []
+  const episodes: Episode[] = []
+  for (const [index, from] of boundaries.entries()) {
+    const next = boundaries[index + 1]
+    const to = (next ?? ir.messages.at(-1)?.eventIndex ?? from) - 1
+    const slice = ir.messages.filter((m) => m.eventIndex >= from && m.eventIndex <= Math.max(to, from))
+    const headline = slice.find((m) => m.isHumanTurn)?.text ?? slice[0]?.text ?? ''
+    episodes.push({
+      from,
+      to: Math.max(to, from),
+      headline,
+      tokens: slice.reduce((n, m) => n + approxTokens(m.text ?? ''), 0),
+    })
+  }
+  return episodes
 }
 
 /** Drop the model's scratchpad; only the summary itself is for the reader. */
