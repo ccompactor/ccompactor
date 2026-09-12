@@ -8,7 +8,7 @@
 // The same resolution runs inline in index.html before first paint; keep the
 // two in step.
 
-export const THEME_KEY = "sctxx-theme";
+export const THEME_KEY = "ccompactor-theme";
 
 export const PREFERENCES = ["light", "dark", "auto"];
 

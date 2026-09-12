@@ -1,7 +1,13 @@
 # CCompactor
 
-Extract any coding agent's session into a compact, verified, provenance-linked handoff that any
-other agent can continue from.
+[![CI](https://github.com/ccompactor/ccompactor/actions/workflows/ci.yml/badge.svg)](https://github.com/ccompactor/ccompactor/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/ccompactor)](https://www.npmjs.com/package/ccompactor)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-yellow)](LICENSE)
+
+**Extract any coding agent's session into a compact, verified, provenance-linked handoff that any
+other agent can continue from.**
+
+📖 **[ccompactor.github.io](https://ccompactor.github.io)** · 📦 **[npm](https://www.npmjs.com/package/ccompactor)**
 
 ```sh
 ccompactor list                       # what sessions exist
@@ -15,11 +21,21 @@ Same idea as [sctxx](https://github.com/handyutils/sctxx), in TypeScript.
 ## Install and run
 
 ```sh
+npm i -g ccompactor     # the tool
+ccompactor doctor
+```
+
+Or from source:
+
+```sh
 npm install          # workspaces; installs commander, ink and react
 npm run build        # tsc → packages/ccompactor/dist
 npm run link         # makes `ccompactor` a global command
-ccompactor doctor
 ```
+
+Standalone binaries (no Node needed) for macOS arm64/x64, Linux x64/arm64 with a `.deb`, and
+Windows x64/arm64 are attached to each
+[release](https://github.com/ccompactor/ccompactor/releases).
 
 Or without linking:
 
@@ -28,15 +44,15 @@ npm run ccompactor -- doctor
 node packages/ccompactor/dist/cli.js list --any-project
 ```
 
-**`npm publish` is blocked on purpose while the vendored compaction code is
-present** — `prepack` runs `scripts/guard-vendor.mjs` and fails. That is not a
-bug to work around; see [`NOTICE`](NOTICE) for the two-line removal.
+Releasing is automated — see [`RELEASING.md`](RELEASING.md). The one manual step
+is an npm Automation token stored as the `NPM_TOKEN` secret, because a normal
+Publish token is gated behind an OTP prompt that CI cannot answer.
 
 ## Status
 
-Phases 0–6 of [`SPEC.md`](SPEC.md) are done. Only Phase 7 (fixtures, golden snapshots,
-redaction hardening) is outstanding. The compaction core is **vendored from openclaude and blocked
-from publication** — see [`NOTICE`](NOTICE).
+All phases of [`SPEC.md`](SPEC.md) are implemented: CLI, discovery, three adapters, ledgers,
+artifact, verify, expand, handoff, skill, TUI and the benchmark. **No Anthropic-derived code is
+present** — an earlier vendored copy was never imported and has been deleted; see [`NOTICE`](NOTICE).
 
 ```sh
 ccompactor list --any-project

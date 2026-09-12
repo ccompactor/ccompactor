@@ -78,7 +78,6 @@ body {
 /* The construction-site motif, done once as a utility. 45°, yellow on black. */
 .hazard-bar,
 .ribbon-stripes,
-.step-list::before,
 .doc-section.yellow-band::before {
   background: repeating-linear-gradient(
     45deg,

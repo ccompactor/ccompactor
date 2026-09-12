@@ -772,7 +772,15 @@ export default function App() {
           </section>
 
           {visible.map((section) => (
-            <section className="doc-section" id={section.id} key={section.id}>
+            <section
+              className={
+                section.id === "quickstart"
+                  ? "doc-section yellow-band"
+                  : "doc-section"
+              }
+              id={section.id}
+              key={section.id}
+            >
               <SectionHeading
                 number={section.number}
                 title={section.title}
@@ -897,7 +905,8 @@ export default function App() {
                         ? {}
                         : { target: "_blank", rel: "noreferrer" })}
                     >
-                      {link.text} {link.href.startsWith("#") ? "" : "↗"}
+                      {link.text}
+                      {link.href.startsWith("#") ? "" : " ↗"}
                     </a>
                   ))}
                 </div>

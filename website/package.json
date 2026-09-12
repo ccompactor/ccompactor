@@ -1,9 +1,9 @@
 {
-  "name": "sctxx-website",
+  "name": "ccompactor-website",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Documentation site for sctxx, published to https://handyutils.github.io/sctxx",
+  "description": "Documentation site for ccompactor, published to https://ccompactor.github.io/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
