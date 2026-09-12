@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.2] — 2026-09-13
+
+### Added
+
+- **A readable transcript output**: `extract --format transcript` writes what was actually said —
+  user and agent turns, oldest first, with tool calls as one line each and `--full` for every call and
+  its output. A handoff says where the work stands; this says what happened.
+
+### Changed
+
+- **The TUI was rebuilt** around the three questions it has to answer: which session, is this the one,
+  and what do I do with it. Agent filter chips with real counts, a quick look at the newest turns,
+  full untruncated session ids, columns for messages and user turns, a menu of named actions with
+  their destinations, progress for every operation, and mouse click and wheel. Details in the commit.
+
+### Fixed
+
+- **`--out` never reached the TUI**, which read `program.opts()` before commander had parsed anything
+  and so always fell back to `.ccompactor`.
+- **The session list could exhaust the heap.** Reading a session kept every event's original record
+  and read whole files into arrays of parsed objects, so a 268 MB transcript became hundreds of
+  megabytes of live objects. Transcripts stream in two passes now, and a light read drops what it does
+  not need: 2.1 s and 113 MB where it previously crashed.
+- **`a` meant two different things** in the list and the preview, so the hint line was wrong on one of
+  them.
+- A Pi session's 62-character id pushed every column after it out of line.
+
 ## [0.1.1]
 
 ### Changed

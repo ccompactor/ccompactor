@@ -20,7 +20,7 @@ program
   .description(
     'Extract any coding agent session into a compact, verified, provenance-linked handoff any other agent can continue from.',
   )
-  .version('0.1.1')
+  .version('0.1.2')
   .option('--json', 'machine-readable output on stdout')
   .option('--quiet', 'suppress progress and diagnostics on stderr')
   .option('--tui', 'open the interactive browser')
