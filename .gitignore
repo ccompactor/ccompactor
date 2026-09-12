@@ -1,4 +1,6 @@
-node_modules
-dist
-dist-test
-.ccompactor
+node_modules/
+dist/
+dist-test/
+.ccompactor/
+*.tgz
+.DS_Store

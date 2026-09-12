@@ -46,8 +46,8 @@ ccompactor: refusing to publish.
   That code is derived from Anthropic's proprietary Claude Code CLI via
   openclaude, whose LICENSE states it has no authorization to distribute it.
 
-  Replace the vendored engine with the clean-room implementation
-  (src/compact/engine.ts) before publishing. See NOTICE.
+  The engine in src/compact/engine.ts is the clean-room implementation and is
+  what actually runs. Delete the vendored files before publishing. See NOTICE.
 `)
     process.exit(1)
   }

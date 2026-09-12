@@ -6,19 +6,18 @@
  * is currently in use, and the port is what makes replacing it a change to one
  * file rather than a change to the product.
  *
- * ── State of the two implementations ────────────────────────────────────────
+ * ── Implementation ──────────────────────────────────────────────────────────
  *
- * `summarise` currently delegates to `summariseWithVendored`, which uses the
- * openclaude compaction prompt from `./vendor/prompt.ts`. That code is derived
- * from Anthropic's proprietary Claude Code CLI and openclaude's own LICENSE
- * states it has no authorization to distribute it, so it must not be published.
- * `packages/ccompactor/scripts/guard-vendor.mjs` enforces that.
- *
- * `summariseWithContract` below is the replacement, written against the
- * *contract* rather than the source: the same nine sections, the same
+ * `summarise` delegates to `summariseWithContract`, which is written against the
+ * *contract* rather than against any source: the same nine sections, the same
  * text-only constraint, the same separation of a private scratchpad from the
- * summary a successor reads. It needs no import from `vendor/` and can be
- * switched on by changing one line.
+ * summary a successor reads. It imports nothing from any leaked or derived
+ * codebase, and the repository contains none.
+ *
+ * The nine-section contract is the published behaviour of Claude Code's
+ * `/compact`, documented in docs/SPEC.md §"The compact prompt structure".
+ * Section structure is not protectable expression; the wording here is
+ * ccompactor's own.
  *
  * ── Attribution ─────────────────────────────────────────────────────────────
  *

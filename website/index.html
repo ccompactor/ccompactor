@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sctxx — continue any coding-agent session in any other agent</title>
+    <meta
+      name="description"
+      content="sctxx turns a Claude Code, Codex CLI, or Pi session transcript into a compact, verified, provenance-linked handoff artifact that any other coding agent can continue from."
+    />
+    <meta property="og:title" content="sctxx — Session ConTeXt eXtractor" />
+    <meta
+      property="og:description"
+      content="Turn a finished coding-agent session into a warm start for any other agent. Deterministic first, provenance-linked, verified against your repository."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://handyutils.github.io/sctxx/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Resolve the theme before the first paint, so a reader whose OS is dark
+      // never sees a white flash. `src/theme.js` applies the same rule for
+      // changes made in the app; keep the two in step.
+      (function () {
+        try {
+          var preference = localStorage.getItem("sctxx-theme") || "auto";
+          var dark =
+            preference === "dark" ||
+            (preference !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.theme = dark ? "dark" : "light";
+        } catch (error) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

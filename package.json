@@ -2,8 +2,12 @@
   "name": "ccompactor-workspace",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
-  "engines": { "node": ">=20" },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "npm run build --workspace ccompactor",
     "test": "npm run test --workspace ccompactor",
@@ -11,5 +15,8 @@
     "ccompactor": "node packages/ccompactor/dist/cli.js",
     "link": "npm run build && npm link --workspace ccompactor",
     "clean": "rm -rf packages/ccompactor/dist packages/ccompactor/dist-test"
+  },
+  "devDependencies": {
+    "react-devtools-core": "^8.0.0"
   }
 }

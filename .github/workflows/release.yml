@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build everything but publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  # Publish to npm first. The standalone binaries below are for people who do not
+  # want a Node runtime; `npm i -g ccompactor` is the path most people take, and
+  # it should not wait behind five cross-compiles.
+  npm:
+    name: publish to npm
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      # Refuses while any upstream-derived code is present. See NOTICE.
+      - run: node packages/ccompactor/scripts/guard-vendor.mjs
+      - name: publish
+        working-directory: packages/ccompactor
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  binaries:
+    name: ${{ matrix.asset }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            asset: ccompactor-darwin-arm64
+            archive: tar.gz
+          - target: bun-darwin-x64
+            asset: ccompactor-darwin-x64
+            archive: tar.gz
+          - target: bun-linux-x64
+            asset: ccompactor-linux-x64
+            archive: tar.gz
+            deb_arch: amd64
+          - target: bun-linux-arm64
+            asset: ccompactor-linux-arm64
+            archive: tar.gz
+            deb_arch: arm64
+          - target: bun-windows-x64
+            asset: ccompactor-windows-x64
+            archive: zip
+            ext: .exe
+          - target: bun-windows-arm64
+            asset: ccompactor-windows-arm64
+            archive: zip
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # The TUI pulls in ink, which pulls in react-devtools-core at bundle time.
+      # Cross-compiling resolves the whole graph, so dev dependencies must be
+      # present even though nothing in the shipped path uses them.
+      - name: compile
+        run: |
+          bun build --compile \
+            --target=${{ matrix.target }} \
+            --outfile dist/${{ matrix.asset }}${{ matrix.ext }} \
+            packages/ccompactor/src/cli.ts
+          echo "${{ github.ref_name }}" > dist/VERSION
+      - name: archive
+        run: |
+          cd dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -q "${{ matrix.asset }}.zip" "${{ matrix.asset }}${{ matrix.ext }}" VERSION
+          else
+            tar -czf "${{ matrix.asset }}.tar.gz" "${{ matrix.asset }}${{ matrix.ext }}" VERSION
+          fi
+      - name: deb
+        if: matrix.deb_arch != ''
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME#v}"
+          ROOT="deb/ccompactor_${VERSION}_${{ matrix.deb_arch }}"
+          mkdir -p "$ROOT/DEBIAN" "$ROOT/usr/bin" "$ROOT/usr/share/doc/ccompactor"
+          cp "dist/${{ matrix.asset }}" "$ROOT/usr/bin/ccompactor"
+          chmod 755 "$ROOT/usr/bin/ccompactor"
+          cat > "$ROOT/DEBIAN/control" <<EOF
+          Package: ccompactor
+          Version: $VERSION
+          Section: utils
+          Priority: optional
+          Architecture: ${{ matrix.deb_arch }}
+          Maintainer: ccompactor <https://github.com/ccompactor>
+          Homepage: https://ccompactor.github.io
+          Description: Extract any coding-agent session into a handoff any other agent can continue from.
+           Reads Claude Code, Codex CLI and Pi transcripts, builds deterministic ledgers, and
+           renders a provenance-linked handoff artifact. Standalone binary; no Node required.
+          EOF
+          cp LICENSE "$ROOT/usr/share/doc/ccompactor/copyright" 2>/dev/null || true
+          dpkg-deb --build --root-owner-group "$ROOT"
+          mv "${ROOT}.deb" dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: |
+            dist/${{ matrix.asset }}.${{ matrix.archive }}
+            dist/*.deb
+          if-no-files-found: ignore
+
+  release:
+    name: attach to the release
+    needs: binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**
+          generate_release_notes: true
+          draft: ${{ inputs.dry_run }}

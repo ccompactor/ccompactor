@@ -1,7 +1,7 @@
 {
   "name": "ccompactor",
   "version": "0.1.0",
-  "description": "Extract any coding agent's session into a compact, verified, provenance-linked handoff any other agent can continue from.",
+  "description": "Extract any coding-agent session (Claude Code, Codex, Pi) into a compact, verified, provenance-linked handoff that any other agent can continue from.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -22,7 +22,8 @@
     "dist",
     "skill",
     "README.md",
-    "NOTICE"
+    "NOTICE",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -41,5 +42,30 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "typescript": "^5.9.0"
+  },
+  "keywords": [
+    "cli",
+    "agent",
+    "llm",
+    "context",
+    "handoff",
+    "compaction",
+    "claude-code",
+    "codex",
+    "tui"
+  ],
+  "homepage": "https://ccompactor.github.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccompactor/ccompactor.git",
+    "directory": "packages/ccompactor"
+  },
+  "bugs": {
+    "url": "https://github.com/ccompactor/ccompactor/issues"
+  },
+  "author": "ccompactor contributors",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   }
 }
