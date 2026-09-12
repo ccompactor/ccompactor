@@ -1,6 +1,8 @@
 [submodule "openclaude"]
 	path = openclaude
 	url = https://github.com/Gitlawb/openclaude.git
+	branch = main
 [submodule "sctxx"]
 	path = sctxx
-	url = https://github.com/handyutils/sctxx
+	url = https://github.com/handyutils/sctxx.git
+	branch = main
