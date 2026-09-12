@@ -28,7 +28,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "node --experimental-strip-types src/cli.ts",
-    "test": "tsc -p tsconfig.test.json && node --test dist-test/tests/*.test.js",
+    "test": "tsc -p tsconfig.test.json && cd dist-test && node --test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build",
     "prepack": "node scripts/guard-vendor.mjs"
