@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "bin": {
-    "ccompactor": "./dist/cli.js"
+    "ccompactor": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,7 +21,8 @@
   "files": [
     "dist",
     "skill",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -32,13 +33,13 @@
     "prepack": "node scripts/guard-vendor.mjs"
   },
   "dependencies": {
-    "commander": "^13.0.0",
-    "ink": "^6.0.0",
-    "react": "^19.0.0"
+    "commander": "^13.1.0",
+    "ink": "^6.3.1",
+    "react": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/react": "^19.0.0",
-    "typescript": "^5.7.0"
+    "@types/react": "^19.2.0",
+    "typescript": "^5.9.0"
   }
 }

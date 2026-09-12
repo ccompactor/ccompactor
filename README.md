@@ -12,16 +12,36 @@ ccompactor handoff claude:last --to codex --run
 
 Same idea as [sctxx](https://github.com/handyutils/sctxx), in TypeScript.
 
-## Status
-
-Phase 0–1 of [`SPEC.md`](SPEC.md) are done: the CLI, session discovery, the Claude adapter, the
-deterministic ledgers, `extract --llm none`, `expand`, and `verify`. The compaction core is
-**vendored from openclaude and blocked from publication** — see [`NOTICE`](NOTICE).
+## Install and run
 
 ```sh
-cd packages/ccompactor && npm install && npm run build
-node dist/cli.js doctor
-node dist/cli.js extract claude:last --llm none --out .ccompactor
+npm install          # workspaces; installs commander, ink and react
+npm run build        # tsc → packages/ccompactor/dist
+npm run link         # makes `ccompactor` a global command
+ccompactor doctor
+```
+
+Or without linking:
+
+```sh
+npm run ccompactor -- doctor
+node packages/ccompactor/dist/cli.js list --any-project
+```
+
+**`npm publish` is blocked on purpose while the vendored compaction code is
+present** — `prepack` runs `scripts/guard-vendor.mjs` and fails. That is not a
+bug to work around; see [`NOTICE`](NOTICE) for the two-line removal.
+
+## Status
+
+Phases 0–6 of [`SPEC.md`](SPEC.md) are done. Only Phase 7 (fixtures, golden snapshots,
+redaction hardening) is outstanding. The compaction core is **vendored from openclaude and blocked
+from publication** — see [`NOTICE`](NOTICE).
+
+```sh
+ccompactor list --any-project
+ccompactor extract claude:last --llm none --out .ccompactor
+ccompactor --tui
 ```
 
 ## Commands

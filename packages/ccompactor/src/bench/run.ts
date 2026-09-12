@@ -159,13 +159,29 @@ function systemFor(arm: Arm): string {
     : base
 }
 
-/** The recency window: the last tenth of the session, verbatim. */
+/**
+ * The recency window: the newest events that fit a fixed token budget.
+ *
+ * Budgeted, not proportional. The first version took the last tenth of the
+ * messages, which on a 25,000-message session is 1,955,968 tokens — a "tail"
+ * larger than most context windows, scoring zero because the context was
+ * swamped rather than because the strategy is bad. An arm that loses for the
+ * wrong reason measures nothing, and this is the arm the published evidence
+ * says should be competitive (arXiv:2508.21433), so it has to be a fair one.
+ */
+const TAIL_TOKENS = 12_000
+
 function tailOf(ir: SessionIR): string {
-  const take = Math.max(20, Math.floor(ir.messages.length / 10))
-  return ir.messages
-    .slice(-take)
-    .map((m) => `evt ${m.eventIndex} ${m.role}: ${(m.text ?? '').slice(0, 600)}`)
-    .join('\n')
+  const lines: string[] = []
+  let spent = 0
+  for (const message of [...ir.messages].reverse()) {
+    const line = `evt ${message.eventIndex} ${message.role}: ${(message.text ?? '').slice(0, 600)}`
+    const cost = Math.ceil(line.length / 4)
+    if (spent + cost > TAIL_TOKENS) break
+    spent += cost
+    lines.push(line)
+  }
+  return lines.reverse().join('\n')
 }
 
 function summarize(scores: ReturnType<typeof score>): Record<string, unknown> {

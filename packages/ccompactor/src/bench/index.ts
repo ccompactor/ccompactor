@@ -116,7 +116,17 @@ export function questions(ir: SessionIR, ledgers: Ledgers, options: BenchOptions
   // Deep: sampled from events that can actually be asked about, spread over the
   // first 85% so no recency tail can reach them. Filtering first and sampling
   // second is what makes the requested count the count that is asked.
-  const askable = ir.messages.filter((m) => keyFor(m) !== undefined)
+  //
+  // Preference order matters. A tool result is a poor question source: its
+  // distinctive token is a long path buried past any reasonable truncation, so
+  // asking about it measures truncation rather than the context. The first run
+  // drew most questions from tool results and the tail arm scored zero on every
+  // class — including recent — which is the arm the published evidence says
+  // should be competitive. Prose first, artifacts only to fill the quota.
+  const speakable = ir.messages.filter((m) => isHumanTurn(m) || isAssistantText(m))
+  const askable = speakable.length >= options.deep + options.recent
+    ? speakable
+    : ir.messages.filter((m) => keyFor(m) !== undefined)
   const usable = Math.floor((askable.length * 85) / 100)
   if (usable >= options.deep && options.deep > 0) {
     const stride = Math.floor(usable / options.deep)
@@ -150,6 +160,14 @@ export function questions(ir: SessionIR, ledgers: Ledgers, options: BenchOptions
   return out
 }
 
+function isHumanTurn(message: IRMessage): boolean {
+  return message.isHumanTurn === true && Boolean(message.text && message.text.trim().length > 0)
+}
+
+function isAssistantText(message: IRMessage): boolean {
+  return message.role === 'assistant' && !message.toolName && Boolean(message.text && message.text.trim().length > 4)
+}
+
 function describe(message: IRMessage): string {
   if (message.isHumanTurn) return 'the user asking for'
   if (message.toolName) return `the ${message.toolName} call doing`
@@ -167,8 +185,12 @@ function describe(message: IRMessage): string {
  */
 export function keyFor(message: IRMessage): string | undefined {
   const text = [message.text ?? '', message.toolInput ? JSON.stringify(message.toolInput) : ''].join(' ')
-  if (message.isHumanTurn && message.text) {
-    return message.text.split(/\s+/).slice(0, 8).join(' ')
+  // Prose is keyed on its own words: a correct answer paraphrases, so a phrase
+  // from the sentence is what a correct answer will contain. A tool result has
+  // no sentence worth quoting, so it falls through to a distinctive token.
+  if ((isHumanTurn(message) || isAssistantText(message)) && message.text) {
+    const words = message.text.split(/\s+/).filter((w) => w.length > 0)
+    if (words.length >= 4) return words.slice(0, 8).join(' ')
   }
   let best: { rank: number; token: string } | undefined
   for (const raw of text.split(/\s+/)) {

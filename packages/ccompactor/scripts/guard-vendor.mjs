@@ -12,22 +12,35 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const vendor = join(root, 'src', 'compact', 'vendor')
 
-const manifest = join(vendor, 'MANIFEST.json')
-const declared = existsSync(manifest)
-  ? JSON.parse(readFileSync(manifest, 'utf8')).modules.filter((f) => f.endsWith('.ts'))
-  : existsSync(vendor)
-    ? readdirSync(vendor).filter((f) => f.endsWith('.ts'))
-    : []
+// Both places, because only one of them is what ships. The source directory is
+// where the code is written; `dist/` is what `files` puts in the tarball, and a
+// guard that checks only the first would happily publish the second.
+const locations = [
+  { dir: join(root, 'src', 'compact', 'vendor'), ext: '.ts' },
+  { dir: join(root, 'dist', 'compact', 'vendor'), ext: '.js' },
+]
 
-if (declared.length > 0) {
-  const files = declared
+const found = []
+for (const { dir, ext } of locations) {
+  const manifest = join(dir, 'MANIFEST.json')
+  const declared = existsSync(manifest)
+    ? JSON.parse(readFileSync(manifest, 'utf8')).modules
+        .map((f) => f.replace(/\.ts$/, ext))
+        .filter((f) => f.endsWith(ext))
+    : existsSync(dir)
+      ? readdirSync(dir).filter((f) => f.endsWith(ext))
+      : []
+  for (const file of declared) found.push(join(dir, file).replace(`${root}/`, ''))
+}
+
+if (found.length > 0) {
+  const files = found
   if (files.length > 0) {
     console.error(`
 ccompactor: refusing to publish.
 
-  src/compact/vendor/ still contains ${files.length} vendored file(s):
+  ${files.length} vendored file(s) are still present and would ship:
     ${files.join('\n    ')}
 
   That code is derived from Anthropic's proprietary Claude Code CLI via

@@ -21,6 +21,14 @@
   together.
 - `ccompactor expand` pages in exact, non-overlapping ranges and says how to reach the next page.
 
+- **Installable and launchable.** npm workspaces at the repo root; `npm install && npm run build &&
+  npm run link` gives a real `ccompactor` command. Runtime dependencies are declared, not implied:
+  commander, ink and react. Verified end to end with `which ccompactor`, `--version`, `doctor`, and
+  an extract through the global binary.
+- The publish guard now checks **`dist/` as well as `src/`**. It only looked at the source directory,
+  and `dist/` is what `files` actually puts in the tarball — a guard that checks the first would
+  happily publish the second.
+
 ### Fixed
 
 - **`verify` reported every quote as missing.** It compared the artifact's cleaned, whitespace-

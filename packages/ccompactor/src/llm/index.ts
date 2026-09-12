@@ -42,7 +42,11 @@ const DEFAULT_MODELS: Record<string, string> = {
 export function parseSelection(text: string): Selection {
   const value = text.trim()
   if (value === 'none') return { kind: 'none' }
-  const [provider, model] = value.split('/')
+  // The spec writes these as `api:anthropic`, `api:compat/<model>`. Splitting on
+  // `/` before stripping the `api:` prefix makes the provider `api:compat` and
+  // every run fail with a message that names the prefix it just failed to strip.
+  const bare = value.startsWith('api:') ? value.slice(4) : value
+  const [provider, model] = bare.split('/')
   if (!provider) throw new Error(`unknown --llm \`${text}\``)
   if (provider === 'anthropic') return { kind: 'anthropic', model: model ?? DEFAULT_MODELS['anthropic']! }
   if (provider === 'openai') return { kind: 'openai', model: model ?? DEFAULT_MODELS['openai']! }
@@ -51,7 +55,9 @@ export function parseSelection(text: string): Selection {
     if (!baseUrl) throw new Error('--llm api:compat needs CCOMPACTOR_BASE_URL')
     return { kind: 'compat', model: model ?? DEFAULT_MODELS['compat']!, baseUrl }
   }
-  throw new Error(`unknown --llm provider \`${provider}\` (expected none, anthropic, openai, compat)`)
+  throw new Error(
+    `unknown --llm provider \`${provider}\` (expected none, api:anthropic, api:openai, api:compat/<model>)`,
+  )
 }
 
 /** Resolve `auto`: an API key if one is present, otherwise nothing. */
