@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# sync_upstream.sh
+# scripts/sync_submodule.sh
 #
-# Sync the `openclaude` git submodule of this repository with its upstream
-# source of truth:
+# Generic engine: sync one git submodule of this repository with its upstream
+# source of truth, then record the new pinned commit here.
 #
-#     https://github.com/Gitlawb/openclaude
+# Don't call this directly — use the per-submodule wrapper scripts, which set
+# the configuration below and forward all arguments:
 #
-# The script fetches the upstream branch, moves the submodule to the tip of
-# that branch (detached HEAD, as submodules should be), and records the new
-# pinned commit in this repository.
+#     ./sync_openclaude.sh     -> openclaude  (Gitlawb/openclaude)
+#     ./sync_sctxx.sh          -> sctxx       (handyutils/sctxx)
 #
 # Maintainer: Alexander Musichen (musichen)
 # =============================================================================
@@ -17,14 +17,15 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Configuration (override with environment variables if needed)
+# Configuration — supplied by the wrapper script, overridable from the env
 # ---------------------------------------------------------------------------
-UPSTREAM_URL="${OCA_UPSTREAM_URL:-https://github.com/Gitlawb/openclaude.git}"
-SUBMODULE="${OCA_SUBMODULE:-openclaude}"
-REMOTE_NAME="${OCA_UPSTREAM_REMOTE:-upstream}"
-BRANCH="${OCA_UPSTREAM_BRANCH:-main}"
-GIT_NAME="${OCA_GIT_NAME:-Alexander Musichen}"
-GIT_EMAIL="${OCA_GIT_EMAIL:-alex.musichen@gmail.com}"
+SUBMODULE="${SYNC_SUBMODULE:-}"
+UPSTREAM_URL="${SYNC_UPSTREAM_URL:-}"
+BRANCH="${SYNC_BRANCH:-main}"
+REMOTE_NAME="${SYNC_REMOTE:-upstream}"
+SCRIPT_NAME="${SYNC_SCRIPT_NAME:-$(basename "$0")}"
+GIT_NAME="${SYNC_GIT_NAME:-${OCA_GIT_NAME:-Alexander Musichen}}"
+GIT_EMAIL="${SYNC_GIT_EMAIL:-${OCA_GIT_EMAIL:-alex.musichen@gmail.com}}"
 
 # ---------------------------------------------------------------------------
 # Runtime flags
@@ -51,10 +52,10 @@ die()   { printf '%s\n' "${C_RED}error:${C_RESET} $*" >&2; exit 1; }
 
 usage() {
 	cat <<EOF
-${C_BOLD}sync_upstream.sh${C_RESET} — sync the '${SUBMODULE}' submodule from ${UPSTREAM_URL}
+${C_BOLD}${SCRIPT_NAME}${C_RESET} — sync the '${SUBMODULE}' submodule from ${UPSTREAM_URL}
 
 Usage:
-  ./sync_upstream.sh [options]
+  ./${SCRIPT_NAME} [options]
 
 Options:
   -b, --branch <name>   Upstream branch to sync (default: ${BRANCH})
@@ -66,11 +67,11 @@ Options:
   -h, --help            Show this help
 
 Environment overrides:
-  OCA_UPSTREAM_URL      Upstream clone URL   (default: ${UPSTREAM_URL})
-  OCA_UPSTREAM_BRANCH   Upstream branch      (default: ${BRANCH})
-  OCA_SUBMODULE         Submodule path       (default: ${SUBMODULE})
-  OCA_GIT_NAME          Commit author name   (default: ${GIT_NAME})
-  OCA_GIT_EMAIL         Commit author email  (default: ${GIT_EMAIL})
+  SYNC_UPSTREAM_URL     Upstream clone URL   (default: ${UPSTREAM_URL})
+  SYNC_BRANCH           Upstream branch      (default: ${BRANCH})
+  SYNC_REMOTE           Remote name          (default: ${REMOTE_NAME})
+  SYNC_GIT_NAME         Commit author name   (default: ${GIT_NAME})
+  SYNC_GIT_EMAIL        Commit author email  (default: ${GIT_EMAIL})
 EOF
 }
 
@@ -89,6 +90,9 @@ while [ $# -gt 0 ]; do
 		*)             usage >&2; die "unknown option: $1" ;;
 	esac
 done
+
+[ -n "$SUBMODULE" ] || die "SYNC_SUBMODULE is not set; use the per-submodule wrapper scripts (e.g. ./sync_openclaude.sh)"
+[ -n "$UPSTREAM_URL" ] || die "SYNC_UPSTREAM_URL is not set; use the per-submodule wrapper scripts (e.g. ./sync_openclaude.sh)"
 
 # ---------------------------------------------------------------------------
 # Locate the superproject (this script may be invoked from anywhere)
@@ -196,17 +200,26 @@ git add .gitmodules "$SUBMODULE"
 
 if [ "$DO_COMMIT" -eq 0 ]; then
 	info "--no-commit set; staged changes:"
-	git --no-pager diff --cached --submodule=short --stat | sed 's/^/    /'
+	git --no-pager diff --cached --submodule=short --stat -- .gitmodules "$SUBMODULE" | sed 's/^/    /'
 	exit 0
 fi
 
 # ---------------------------------------------------------------------------
 # 6. Commit the new pin (attributed to Alexander Musichen)
+#
+# The commit is path-limited to the submodule and .gitmodules, so unrelated
+# staged work in this repository is never swept into a sync commit.
 # ---------------------------------------------------------------------------
-STAGED="$(git diff --cached --name-only)"
+STAGED="$(git diff --cached --name-only -- .gitmodules "$SUBMODULE")"
 if [ -z "$STAGED" ]; then
 	ok "nothing staged — already up to date"
 	exit 0
+fi
+
+OTHERS="$(git diff --cached --name-only -- . ":(exclude).gitmodules" ":(exclude)${SUBMODULE}")"
+if [ -n "$OTHERS" ]; then
+	warn "other staged changes found; they are left staged and are NOT part of this commit:"
+	printf '%s\n' "$OTHERS" | sed 's/^/      /' >&2
 fi
 
 SHORT="${TARGET:0:12}"
@@ -219,7 +232,8 @@ git \
 	-m "$MSG" \
 	-m "Upstream: ${UPSTREAM_URL}" \
 	-m "Branch:   ${BRANCH}" \
-	-m "Commit:   ${TARGET}"
+	-m "Commit:   ${TARGET}" \
+	-- .gitmodules "$SUBMODULE"
 ok "committed as ${GIT_NAME}: $(git rev-parse --short HEAD) ${MSG}"
 
 # ---------------------------------------------------------------------------
