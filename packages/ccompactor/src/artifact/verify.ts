@@ -9,6 +9,11 @@
 import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
+/** Collapse whitespace and punctuation so a quote survives reformatting. */
+function normalize(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
 export interface VerifyReport {
   dir: string
   constraintsQuoted: number
@@ -33,7 +38,11 @@ export async function verify(dir: string): Promise<VerifyReport> {
   for (const constraint of constraints) {
     // The quote must be in the transcript, not merely in the artifact: a quote
     // checked against its own output proves only that it was copied.
-    if (transcript && !transcript.includes(constraint.text.replace(/\\"/g, '"'))) {
+    // Compared normalized, not raw. The artifact quotes the rule with its
+    // markdown and line breaks collapsed, so a byte comparison against the
+    // transcript reports every quote as missing — which the first run of this
+    // did, and which is worse than not checking at all.
+    if (transcript && !normalize(transcript).includes(normalize(constraint.text))) {
       missingQuotes.push(constraint)
     }
   }

@@ -28,7 +28,8 @@
     "dev": "node --experimental-strip-types src/cli.ts",
     "test": "tsc -p tsconfig.test.json && node --test 'dist-test/tests/**/*.test.js'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build"
+    "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build",
+    "prepack": "node scripts/guard-vendor.mjs"
   },
   "dependencies": {
     "commander": "^13.0.0",

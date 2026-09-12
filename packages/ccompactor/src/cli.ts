@@ -194,6 +194,109 @@ program
     if (opts.strict && report.missingQuotes.length > 0) process.exitCode = 7
   })
 
+program
+  .command('handoff <reference>')
+  .description('Launch a target agent with the handoff preloaded.')
+  .requiredOption('--to <agent>', 'claude, openclaude, codex, pi, or generic')
+  .option('--out <dir>', 'output directory', '.ccompactor')
+  .option('--llm <mode>', 'none | auto | api:<provider>', 'auto')
+  .option('--run', 'launch it rather than printing the command')
+  .option('--any-project', 'ignore the project filter')
+  .action(async (reference: string, opts) => {
+    const { extractSession } = await import('./extract.js')
+    const { plan, installed } = await import('./handoff/index.js')
+    const { parseSelection, resolveAuto } = await import('./llm/index.js')
+    const selection = opts.llm === 'auto' ? resolveAuto() : parseSelection(opts.llm)
+    const result = await extractSession(
+      reference,
+      { outDir: opts.out, llm: selection, anyProject: opts.anyProject === true },
+      note,
+    )
+    const artifact = result.written[0] ?? `${opts.out}/handoff.md`
+    const launch = plan(opts.to, artifact, process.cwd())
+    if (!opts.run) {
+      note(`targets on PATH: ${installed().join(', ') || 'none'}`)
+      if (launch.note) note(launch.note)
+      emit({ schema: 'ccompactor.handoff/v1', ...launch, artifact }, launch.display)
+      return
+    }
+    if (launch.program === '') {
+      process.stderr.write(`error: \`${opts.to}\` cannot be launched; ${launch.note}\n`)
+      process.exitCode = 2
+      return
+    }
+    // The terminal is handed over, not shared: the child owns it.
+    const { spawnSync } = await import('node:child_process')
+    const child = spawnSync(launch.program, launch.argv, { stdio: 'inherit' })
+    process.exitCode = child.status ?? 0
+  })
+
+program
+  .command('skill <action>')
+  .description('Install, uninstall, or locate the Agent Skill.')
+  .action(async (action: string) => {
+    const { install, uninstall, skillTargets, payloadDir } = await import('./skill/index.js')
+    if (action === 'install') {
+      const written = await install()
+      emit({ schema: 'ccompactor.skill/v1', action, written }, written.join('\n'))
+      return
+    }
+    if (action === 'uninstall') {
+      const removed = await uninstall()
+      emit({ schema: 'ccompactor.skill/v1', action, removed }, removed.join('\n'))
+      return
+    }
+    if (action === 'path') {
+      const rows = [{ payload: payloadDir() }, ...skillTargets()]
+      emit({ schema: 'ccompactor.skill/v1', action, rows }, JSON.stringify(rows, null, 2))
+      return
+    }
+    process.stderr.write('error: expected install, uninstall, or path\n')
+    process.exitCode = 2
+  })
+
+program
+  .command('bench <references...>')
+  .description('Measure whether a handoff artifact actually hands anything off.')
+  .option('--llm <mode>', 'backend that plays the successor agent', 'auto')
+  .option('--arms <list>', 'none,tail,artifact,retrieval', 'none,tail,artifact,retrieval')
+  .option('--brief <n>', 'questions of this class', (v) => Number.parseInt(v, 10), 6)
+  .option('--deep <n>', '', (v) => Number.parseInt(v, 10), 8)
+  .option('--recent <n>', '', (v) => Number.parseInt(v, 10), 4)
+  .option('--expansions <n>', 'retrieval rounds allowed', (v) => Number.parseInt(v, 10), 3)
+  .option('--out <dir>', 'write bench.json and bench.md here')
+  .option('--show-answers', 'print what the successor answered for each question')
+  .option('--any-project', 'ignore the project filter')
+  .action(async (references: string[], opts) => {
+    const { runBench, renderTable } = await import('./bench/run.js')
+    const { parseSelection, resolveAuto } = await import('./llm/index.js')
+    const selection = opts.llm === 'auto' ? resolveAuto() : parseSelection(opts.llm)
+    const result = await runBench(
+      references,
+      {
+        llm: selection,
+        arms: opts.arms.split(',').map((a: string) => a.trim()) as never,
+        bench: { brief: opts.brief, deep: opts.deep, recent: opts.recent, expansions: opts.expansions },
+        ...(opts.out ? { outDir: opts.out } : {}),
+        discover: { anyProject: opts.anyProject === true },
+      },
+      note,
+    )
+    if (program.opts()['json']) {
+      emit({ schema: 'ccompactor.bench/v1', backend: result.backend, trials: result.trials }, '')
+      return
+    }
+    process.stdout.write(renderTable(result.scores, result.trials, result.backend))
+    if (opts.showAnswers) {
+      process.stdout.write('\nanswers\n')
+      for (const trial of result.trials) {
+        process.stdout.write(
+          `\n[${trial.arm}] ${trial.question} (${trial.class}) ${trial.correct ? 'correct' : 'WRONG'} — ${trial.answer.replace(/\s+/g, ' ').slice(0, 300)}\n`,
+        )
+      }
+    }
+  })
+
 /** The table `list` and `find` share. */
 function renderTable(refs: SessionRef[], total: number): string {
   if (refs.length === 0) return 'no sessions found. Run `ccompactor doctor`.'
@@ -227,7 +330,7 @@ async function main(): Promise<number> {
   }
   if (program.opts()['tui'] || argv[0] === '--tui') {
     const { runTui } = await import('./tui/index.js')
-    return runTui()
+    return runTui({ outDir: '.ccompactor', anyProject: true })
   }
   try {
     await program.parseAsync(process.argv)
