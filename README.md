@@ -84,7 +84,20 @@ layered artifact where every claim carries a recoverable pointer.
 **Does not:** replace live `/compact` inside a running agent, mutate a source transcript, or claim
 bit-identical behaviour with proprietary Claude Code.
 
+## Where things live
+
+| | |
+| --- | --- |
+| the tool | this repository — `packages/ccompactor` |
+| the website | [ccompactor/ccompactor.github.io](https://github.com/ccompactor/ccompactor.github.io) → **[ccompactor.github.io](https://ccompactor.github.io)** |
+| releases | [GitHub Releases](https://github.com/ccompactor/ccompactor/releases) — source of the standalone binaries |
+
+The site is its own repository and deploys itself, so nothing here needs to change when it changes.
+
 ## Licence
 
-MIT for ccompactor's own code. The vendored directory is **not** MIT and **not** publishable — see
-[`NOTICE`](NOTICE).
+MIT. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+CCompactor contains **no code derived from Anthropic's Claude Code CLI**. An earlier iteration
+vendored two modules from a fork of it; nothing imported them, they have been deleted, and
+`scripts/guard-vendor.mjs` runs on `prepack` so they cannot come back by accident.
