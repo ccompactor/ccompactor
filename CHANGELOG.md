@@ -37,6 +37,17 @@
   backend, and retrieval scored 38% against 69% purely because sctxx's artifact named the ranges and
   ccompactor's did not.
 
+### Changed
+
+- **Head to head against sctxx, measured, and ccompactor is behind.** Same session, same four arms,
+  same questions, same backend, three runs each: retrieval ~38% against sctxx's ~73%, deep class ~4/12
+  against ~9/12. The ranges do not overlap, so the gap is real. Three defects were found and fixed by
+  running it — a front-truncated episode index, assistant keys that scored phrasing rather than
+  retrieval, and a `tail` arm of 1,955,968 tokens — and none of them closed it. The cause is not yet
+  identified. Full write-up in the test project's `.ccompactor/COMPARISON.md`.
+- A verbatim recency tail was added to the artifact, measured, and **removed**: it made retrieval
+  worse (38% → 27%) at three times the tokens. The negative result is recorded in the source.
+
 ### Fixed
 
 - **`verify` reported every quote as missing.** It compared the artifact's cleaned, whitespace-

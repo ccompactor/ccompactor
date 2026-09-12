@@ -21,7 +21,7 @@
 import type { Ledgers } from '../ledgers/index.js'
 import type { Constraint } from '../triage.js'
 import type { SessionIR } from '../ir/types.js'
-import { approxTokens } from '../ir/tokens.js'
+import { approxTokens, truncateMiddle } from '../ir/tokens.js'
 
 export interface RenderInput {
   ir: SessionIR
@@ -132,6 +132,16 @@ export function render(input: RenderInput): Rendered {
 
   // L2 — ledgers, the evidence the summary cannot replace.
   out.push(renderLedgers(input))
+
+  // The recency tail was tried here and removed.
+  //
+  // Carrying the last 12,000 tokens verbatim is what sctxx does, and copying it
+  // seemed obviously right: a recency window is the one strategy with an
+  // ablation behind it (arXiv:2508.21433). Measured on the same session, same
+  // questions and same backend, it made retrieval *worse* — 38% to 27% across
+  // three runs — and tripled the tokens. More context is not more answer, and
+  // the arm that loses for the wrong reason is worth removing rather than
+  // keeping for symmetry.
 
   // L3 — retrieval, so that everything dropped is still reachable.
   out.push(renderRetrieval(input))
@@ -260,6 +270,36 @@ function renderLedgers(input: RenderInput): string {
   return out
 }
 
+/**
+ * The newest events, verbatim, to a token budget.
+ *
+ * Verbatim is the point. A summary of the last exchange is exactly the artifact
+ * that loses the detail that matters — the error string, the flag, the path —
+ * and the recency window is cheap because it needs no model at all.
+ */
+const TAIL_TOKENS = 12_000
+/** Per-event ceiling, so one pasted stack trace cannot spend the whole tail. */
+const TAIL_EVENT_TOKENS = 400
+
+function renderTail(input: RenderInput): string {
+  const lines: string[] = []
+  let spent = 0
+  for (const message of [...input.ir.messages].reverse()) {
+    const body = (message.text ?? '').replace(/\s+/g, ' ').trim()
+    if (body.length === 0) continue
+    const truncated = truncateMiddle(body, TAIL_EVENT_TOKENS)
+    const role = message.isHumanTurn ? 'user' : message.role
+    const tag = message.toolName ? `${role}·${message.toolName}` : role
+    const line = `- [evt ${message.eventIndex} ${tag}] ${truncated}`
+    const cost = approxTokens(line)
+    if (spent + cost > TAIL_TOKENS) break
+    spent += cost
+    lines.push(line)
+  }
+  if (lines.length === 0) return ''
+  return `\n## L2b · Recency tail (verbatim, ${lines.length} event(s))\n\n${lines.reverse().join('\n')}\n`
+}
+
 function renderRetrieval(input: RenderInput): string {
   const { ir, ledgers } = input
   const reference = `${ir.ref.agent}:${ir.ref.id}`
@@ -281,22 +321,49 @@ function renderRetrieval(input: RenderInput): string {
   if (episodes.length > 0) {
     const total = episodes.reduce((n, episode) => n + episode.tokens, 0)
     out += `**Not carried verbatim** — ${episodes.length} episode(s), ${total} token(s), all reachable:\n`
-    const budget = 1_200
-    let spent = approxTokens(out.slice(-400))
-    let shown = 0
-    for (const episode of episodes) {
-      const line = `- evt ${episode.from}–${episode.to} · ${oneLine(episode.headline, 110)} · ${episode.tokens}\n`
-      const cost = approxTokens(line)
-      if (shown > 0 && spent + cost > budget) break
-      spent += cost
-      shown += 1
-      out += line
+    // Sampled across the whole session, never truncated from the front.
+    //
+    // The first version listed episodes in order and stopped at the budget, so
+    // on a 341-episode session the index showed roughly the first twenty — all
+    // of them near the start. A question about an event at 45,000 was then not
+    // only unanswered but unaddressable: the reader had no range covering it and
+    // no way to know one existed. That single mistake was worth 45 points of
+    // retrieval accuracy against the same benchmark.
+    const budget = 1_400
+    const shown = sampleAcross(episodes, budget)
+    for (const episode of shown) {
+      out += `- evt ${episode.from}–${episode.to} · ${oneLine(episode.headline, 110)} · ${episode.tokens}\n`
     }
-    if (shown < episodes.length) {
-      out += `- … and ${episodes.length - shown} more episode(s); the full list is in \`ledgers.json\`\n`
+    if (shown.length < episodes.length) {
+      out += `- (${episodes.length - shown.length} episode(s) between these are not listed; the ranges above are contiguous, so any event index in 0–${episodes.at(-1)!.to} can be asked for directly)\n`
     }
     out += '\n'
   }
+  return out
+}
+
+/**
+ * As many episodes as fit the budget, spread evenly across the session.
+ *
+ * Evenly, not newest-first and not from the front: the point of the index is
+ * coverage of the whole transcript, and the questions worth asking are the ones
+ * about the middle. Always includes the first and last.
+ */
+function sampleAcross(episodes: Episode[], budget: number): Episode[] {
+  const costOf = (episode: Episode): number =>
+    approxTokens(`- evt ${episode.from}–${episode.to} · ${oneLine(episode.headline, 110)} · ${episode.tokens}\n`)
+  const total = episodes.reduce((n, e) => n + costOf(e), 0)
+  if (total <= budget) return episodes
+  const average = Math.max(1, total / episodes.length)
+  const keep = Math.max(4, Math.floor(budget / average))
+  const stride = episodes.length / keep
+  const out: Episode[] = []
+  for (let i = 0; i < keep; i += 1) {
+    const episode = episodes[Math.floor(i * stride)]
+    if (episode) out.push(episode)
+  }
+  const last = episodes.at(-1)
+  if (last && out.at(-1) !== last) out.push(last)
   return out
 }
 

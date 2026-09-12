@@ -185,10 +185,17 @@ function describe(message: IRMessage): string {
  */
 export function keyFor(message: IRMessage): string | undefined {
   const text = [message.text ?? '', message.toolInput ? JSON.stringify(message.toolInput) : ''].join(' ')
-  // Prose is keyed on its own words: a correct answer paraphrases, so a phrase
-  // from the sentence is what a correct answer will contain. A tool result has
-  // no sentence worth quoting, so it falls through to a distinctive token.
-  if ((isHumanTurn(message) || isAssistantText(message)) && message.text) {
+  // A request is keyed on its own words, because the human's phrasing is what a
+  // correct answer quotes back.
+  //
+  // An *answer* is not. Keying assistant text on its first eight words looked
+  // reasonable and was wrong: a correct answer paraphrases, so the score
+  // measures phrasing rather than retrieval. Measured against sctxx on the same
+  // session — same questions derived the same way, same backend — the deep
+  // class scored 22% here and 78% there, and this line was why. An assistant
+  // turn is keyed on a distinctive path or identifier instead, which a correct
+  // answer contains verbatim if it knows the answer at all.
+  if (isHumanTurn(message) && message.text) {
     const words = message.text.split(/\s+/).filter((w) => w.length > 0)
     if (words.length >= 4) return words.slice(0, 8).join(' ')
   }
