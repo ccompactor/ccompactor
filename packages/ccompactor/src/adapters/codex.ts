@@ -21,7 +21,7 @@ import { existsSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { AgentKind, Diagnostic, IRMessage, SessionIR, SessionRef } from '../ir/types.js'
 import type { Adapter, ListOptions, ReadOptions } from './types.js'
-import { readLines } from './types.js'
+import { lines } from './types.js'
 
 export function codexStore(): string {
   return process.env['CODEX_HOME'] ? join(process.env['CODEX_HOME'], 'sessions') : join(homedir(), '.codex', 'sessions')
@@ -59,15 +59,15 @@ export class CodexAdapter implements Adapter {
     return refs.sort((a, b) => b.mtime - a.mtime)
   }
 
-  async read(ref: SessionRef, _options: ReadOptions = {}): Promise<SessionIR> {
-    const lines = await readLines(ref.path)
+  async read(ref: SessionRef, options: ReadOptions = {}): Promise<SessionIR> {
     const diagnostics: Diagnostic[] = []
     const messages: IRMessage[] = []
     const compactBoundaries: number[] = []
     const metadata: Record<string, unknown> = {}
     const seenUserText = new Set<string>()
 
-    for (const [index, line] of lines.entries()) {
+    for await (const { n, text: line } of lines(ref.path)) {
+      const index = n - 1
       let raw: RawRecord
       try {
         raw = JSON.parse(line) as RawRecord
@@ -99,6 +99,10 @@ export class CodexAdapter implements Adapter {
           raw,
         })
         continue
+      }
+
+      if (options.light && messages.length > 0 && 'raw' in messages[messages.length - 1]!) {
+        delete (messages[messages.length - 1] as { raw?: unknown }).raw
       }
 
       if (raw.type === 'event_msg') {

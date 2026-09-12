@@ -15,10 +15,15 @@ import { extractConstraints, type Constraint } from './triage.js'
 import { render, type Rendered } from './artifact/render.js'
 import { build, resolveAuto, selectionLabel, type Selection } from './llm/index.js'
 import { summarise } from './compact/engine.js'
+import { renderTranscript } from './artifact/transcript.js'
 import { redact, summarize } from './redact.js'
 
 export interface ExtractOptions extends DiscoverOptions {
   outDir?: string
+  /** `handoff` (the default) or `transcript` (what was said, in order). */
+  format?: 'handoff' | 'transcript'
+  /** For `--format transcript`: include tool calls and their output. */
+  full?: boolean
   llm?: Selection
   focus?: string
   instructions?: string
@@ -76,6 +81,33 @@ export async function extractSession(
     }
   } else {
     progress('summary', 'skipped: --llm none. The deterministic artifact is still complete.')
+  }
+
+  if (options.format === 'transcript') {
+    const transcript = renderTranscript(ir, { full: options.full === true })
+    const written: string[] = []
+    if (!options.dryRun) {
+      const outDir = options.outDir ?? '.ccompactor'
+      await mkdir(outDir, { recursive: true })
+      const path = join(outDir, 'transcript.md')
+      await writeFile(path, transcript.text, 'utf8')
+      written.push(path)
+    }
+    progress('transcript', `${transcript.messages} message(s), ${transcript.tokens} tokens`)
+    return {
+      ref,
+      ledgers,
+      constraints,
+      rendered: {
+        markdown: transcript.text,
+        json: { schema: 'ccompactor.transcript/v1', session: ref.id, messages: transcript.messages },
+        tokens: transcript.tokens,
+      },
+      engine: 'transcript',
+      llm: 'none',
+      written,
+      elapsedMs: Date.now() - started,
+    }
   }
 
   const compactInput: { redactionCounts?: Record<string, number> } = {}

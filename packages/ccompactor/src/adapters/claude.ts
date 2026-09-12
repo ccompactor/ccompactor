@@ -23,7 +23,7 @@ import { homedir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import type { AgentKind, Diagnostic, IRMessage, SessionIR, SessionRef } from '../ir/types.js'
 import type { Adapter, ListOptions, ReadOptions } from './types.js'
-import { readLines } from './types.js'
+import { lines } from './types.js'
 
 /** A record as it appears on disk, loosely typed: unknown fields are ignored. */
 interface RawRecord {
@@ -100,34 +100,45 @@ export class ClaudeAdapter implements Adapter {
   }
 
   async read(ref: SessionRef, options: ReadOptions = {}): Promise<SessionIR> {
-    const lines = await readLines(ref.path)
     const diagnostics: Diagnostic[] = []
-    const records: Array<{ index: number; raw: RawRecord }> = []
 
-    for (const [index, line] of lines.entries()) {
+    // Pass one keeps only the four fields branch resolution needs. Parsing the
+    // whole record and holding it — which is what the first version did — means
+    // keeping every event of a 268 MB transcript in memory at once, and reading
+    // a couple of those to fill in a table exhausted the heap.
+    const spine: Array<{ index: number; uuid?: string; parentUuid?: string | null; type?: string }> = []
+    for await (const line of lines(ref.path)) {
       try {
-        records.push({ index, raw: JSON.parse(line) as RawRecord })
-      } catch (error) {
-        // One bad line is a diagnostic, never a failed session. A truncated
-        // final line is common when a session is read while it is being written.
-        diagnostics.push({
-          line: index + 1,
-          message: `unparseable: ${(error as Error).message}`,
+        const raw = JSON.parse(line.text) as RawRecord
+        spine.push({
+          index: line.n - 1,
+          ...(raw.uuid ? { uuid: raw.uuid } : {}),
+          ...(raw.parentUuid !== undefined ? { parentUuid: raw.parentUuid } : {}),
+          ...(raw.type ? { type: raw.type } : {}),
         })
+      } catch (error) {
+        diagnostics.push({ line: line.n, message: `unparseable: ${(error as Error).message}` })
       }
     }
 
-    const byUuid = new Map<string, { index: number; raw: RawRecord }>()
-    for (const record of records) {
-      if (record.raw.uuid) byUuid.set(record.raw.uuid, record)
-    }
+    const onBranch = resolveActiveBranch(spine, diagnostics)
+    const wanted = new Set(onBranch)
 
-    const onBranch = resolveActiveBranch(records, byUuid, diagnostics)
-    const compactBoundaries: number[] = []
+    // Pass two parses only the records that survived, and drops the original
+    // object unless something downstream will actually read it.
     const messages: IRMessage[] = []
+    const compactBoundaries: number[] = []
     const metadata: Record<string, unknown> = {}
+    for await (const line of lines(ref.path)) {
+      const index = line.n - 1
+      if (!wanted.has(index)) continue
+      let raw: RawRecord
+      try {
+        raw = JSON.parse(line.text) as RawRecord
+      } catch {
+        continue
+      }
 
-    for (const { index, raw } of onBranch) {
       if (raw.cwd && metadata['cwd'] === undefined) metadata['cwd'] = raw.cwd
       if (raw.gitBranch && metadata['branch'] === undefined) metadata['branch'] = raw.gitBranch
       if (raw.version && metadata['version'] === undefined) metadata['version'] = raw.version
@@ -141,33 +152,96 @@ export class ClaudeAdapter implements Adapter {
           role: 'attachment',
           text: raw.summary ?? '',
           eventIndex: index,
-          raw,
+          ...(options.light ? {} : { raw }),
         })
         continue
       }
 
       const message = toMessage(raw, index)
       if (!message) continue
+      if (options.light) delete (message as { raw?: unknown }).raw
       messages.push(message)
       if (isCompactionPreamble(message)) compactBoundaries.push(index)
     }
 
-    if (typeof metadata['cwd'] !== 'string') {
-      // Fall back to the slug only when the transcript recorded no cwd, and say
-      // so: the slug is lossy.
-      metadata['cwdGuessedFromSlug'] = ref.projectPath ? basename(ref.projectPath) : undefined
-    }
-
-    metadata['keptPreBoundary'] = compactBoundaries.length > 0 && options.sinceCompact !== true
-
-    return {
-      ref,
-      messages,
-      compactBoundaries,
-      metadata,
-      diagnostics,
-    }
+    return { ref, messages, compactBoundaries, metadata, diagnostics }
   }
+}
+
+/**
+ * The records that make up the session, in order.
+ *
+ * Three facts about this format decide the algorithm, and getting any of them
+ * wrong silently changes what the successor is told:
+ *
+ * 1. **It is a tree.** `uuid` / `parentUuid` let a rewind or an edit leave the
+ *    abandoned branch in the file. Replaying in line order would hand a
+ *    successor work the human explicitly walked away from.
+ *
+ * 2. **A compaction starts a new root.** Measured on a real 103,757-event
+ *    session, walking parents from the last record reached 1,770 records and 7
+ *    user turns — the walk stopped at the boundary and discarded every earlier
+ *    turn, which are the record of what the human actually asked for.
+ *
+ * 3. **The roots cannot be recognised by looking at them.** The boundary record
+ *    in that session was `type: system`, and 39,754 records carry a null parent
+ *    without starting anything. Classifying roots by type made it worse.
+ *
+ * So there is no classification: walk the newest record's parent chain; when the
+ * walk stops, take the record immediately *before* the oldest one it reached and
+ * walk that chain; repeat. Each pass recovers the tip of one earlier segment.
+ */
+function resolveActiveBranch(
+  spine: Array<{ index: number; uuid?: string; parentUuid?: string | null; type?: string }>,
+  diagnostics: Diagnostic[],
+): number[] {
+  if (spine.length === 0) return []
+  const byUuid = new Map<string, number>()
+  const byIndex = new Map<number, number>()
+  for (const [position, record] of spine.entries()) {
+    if (record.uuid) byUuid.set(record.uuid, position)
+    byIndex.set(record.index, position)
+  }
+
+  const kept = new Set<number>()
+  let cursor = spine.length - 1
+  while (cursor >= 0) {
+    const chain: number[] = []
+    const guard = new Set<string>()
+    let position: number | undefined = cursor
+    while (position !== undefined) {
+      const record = spine[position]!
+      if (chain.includes(record.index)) break
+      chain.push(record.index)
+      const parentUuid = record.parentUuid
+      if (!parentUuid) break
+      if (guard.has(parentUuid)) {
+        diagnostics.push({ line: record.index + 1, message: 'parentUuid cycle; walk stopped' })
+        break
+      }
+      guard.add(parentUuid)
+      position = byUuid.get(parentUuid)
+    }
+    for (const index of chain) kept.add(index)
+
+    const oldest = Math.min(...chain)
+    const before = byIndex.get(oldest - 1)
+    if (before === undefined) break
+    diagnostics.push({
+      line: 0,
+      message: `continuation at record ${oldest + 1}: recovered ${chain.length} record(s) before it and continued`,
+    })
+    cursor = before
+  }
+
+  const off = spine.length - kept.size
+  if (off > 0) {
+    diagnostics.push({
+      line: 0,
+      message: `${off} record(s) are not on any active branch (rewound or edited) and were skipped`,
+    })
+  }
+  return [...kept].sort((a, b) => a - b)
 }
 
 function isCompactionPreamble(message: IRMessage): boolean {
@@ -295,100 +369,6 @@ function firstToolResult(
   }
   return undefined
 }
-
-/**
- * The records that make up the session, in source order.
- *
- * Three facts about this format decide the algorithm, and getting any of them
- * wrong silently changes what the successor is told:
- *
- * 1. **It is a tree.** `uuid` / `parentUuid` let a rewind or an edit leave the
- *    abandoned branch in the file. Replaying in line order would hand a
- *    successor work the human explicitly walked away from, so the live branch is
- *    resolved by walking parent pointers back from the newest record.
- *
- * 2. **A compaction starts a new root.** `/compact` writes a summary and
- *    continues with records whose `parentUuid` is null; the chain genuinely does
- *    not cross that boundary. Measured on a real 103,757-event session, walking
- *    parents from the last record reached 1,770 records and 7 user turns — the
- *    walk stopped at the boundary and discarded every earlier turn, which are
- *    the record of what the human actually asked for.
- *
- * 3. **The roots cannot be recognised by looking at them.** In that session the
- *    boundary record was `type: system`, and 39,754 records carry a null parent
- *    without starting anything. Classifying roots by type was the first attempt
- *    and it silently dropped the session back to 853 events.
- *
- * So there is no classification: walk the newest record's parent chain; when the
- * walk stops, take the record immediately *before* the oldest one it reached and
- * walk that chain; repeat. Each pass recovers the tip of one earlier segment.
- * Branch resolution is preserved wherever a rewind happened, history survives
- * every boundary, and a malformed file terminates because the cursor strictly
- * decreases. `--since-compact` keeps the first pass only.
- */
-function resolveActiveBranch(
-  records: Array<{ index: number; raw: RawRecord }>,
-  byUuid: Map<string, { index: number; raw: RawRecord }>,
-  diagnostics: Diagnostic[],
-): Array<{ index: number; raw: RawRecord }> {
-  if (records.length === 0) return []
-  const byIndex = new Map(records.map((r) => [r.index, r]))
-  const kept = new Map<number, { index: number; raw: RawRecord }>()
-  let failedWalks = 0
-  let cursor: { index: number; raw: RawRecord } | undefined = records[records.length - 1]
-
-  while (cursor) {
-    const chain = new Map<number, { index: number; raw: RawRecord }>()
-    const guard = new Set<string>()
-    let node: { index: number; raw: RawRecord } | undefined = cursor
-    while (node) {
-      if (chain.has(node.index)) break
-      chain.set(node.index, node)
-      const parentUuid: string | null | undefined = node.raw.parentUuid
-      if (!parentUuid) break
-      // A cycle would hang the process on a corrupt file.
-      if (guard.has(parentUuid)) {
-        diagnostics.push({ line: node.index + 1, message: 'parentUuid cycle; walk stopped' })
-        break
-      }
-      guard.add(parentUuid)
-      const parent = byUuid.get(parentUuid)
-      if (!parent) {
-        // A dangling parent is common when a session is read mid-write or when
-        // the provider rewrote the head. Keep what was found and say so.
-        failedWalks += 1
-        break
-      }
-      node = parent
-    }
-    for (const record of chain.values()) kept.set(record.index, record)
-
-    const oldest = Math.min(...chain.keys())
-    const previous = byIndex.get(oldest - 1)
-    if (!previous || oldest === 0) break
-    diagnostics.push({
-      line: 0,
-      message: `continuation at record ${oldest + 1}: recovered ${chain.size} record(s) before it and continued`,
-    })
-    cursor = previous
-  }
-
-  const off = records.length - kept.size
-  if (off > 0) {
-    diagnostics.push({
-      line: 0,
-      message: `${off} record(s) are not on any active branch (rewound or edited) and were skipped`,
-    })
-  }
-  if (failedWalks > 0) {
-    diagnostics.push({
-      line: 0,
-      message: `${failedWalks} parent pointer(s) were dangling; ${kept.size} record(s) kept`,
-    })
-  }
-  return [...kept.values()].sort((a, b) => a.index - b.index)
-}
-
 async function safeReaddir(path: string): Promise<string[]> {
   try {
     return await readdir(path)

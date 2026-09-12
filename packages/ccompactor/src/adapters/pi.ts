@@ -21,7 +21,7 @@ import { existsSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import type { AgentKind, Diagnostic, IRMessage, SessionIR, SessionRef } from '../ir/types.js'
 import type { Adapter, ListOptions, ReadOptions } from './types.js'
-import { readLines } from './types.js'
+import { lines } from './types.js'
 
 export function piStore(): string {
   return process.env['PI_HOME']
@@ -76,15 +76,15 @@ export class PiAdapter implements Adapter {
     return refs.sort((a, b) => b.mtime - a.mtime)
   }
 
-  async read(ref: SessionRef, _options: ReadOptions = {}): Promise<SessionIR> {
-    const lines = await readLines(ref.path)
+  async read(ref: SessionRef, options: ReadOptions = {}): Promise<SessionIR> {
     const diagnostics: Diagnostic[] = []
     const messages: IRMessage[] = []
     const compactBoundaries: number[] = []
     const metadata: Record<string, unknown> = {}
     let unknown = 0
 
-    for (const [index, line] of lines.entries()) {
+    for await (const { n, text: line } of lines(ref.path)) {
+      const index = n - 1
       let raw: Record<string, unknown>
       try {
         raw = JSON.parse(line) as Record<string, unknown>
@@ -178,6 +178,10 @@ export class PiAdapter implements Adapter {
         line: 0,
         message: `${unknown} record(s) matched no known Pi shape and were skipped`,
       })
+    }
+
+    if (options.light) {
+      for (const message of messages) delete (message as { raw?: unknown }).raw
     }
 
     return { ref, messages, compactBoundaries, metadata, diagnostics }

@@ -81,7 +81,7 @@ export class AmbiguousError extends Error {
 /** Read a resolved session into the canonical IR. */
 export async function readSession(
   ref: SessionRef,
-  options: { includeSidechains?: boolean } = {},
+  options: { includeSidechains?: boolean; light?: boolean } = {},
 ): Promise<SessionIR> {
   const adapter = adapters().find((a) => a.kind === ref.agent)
   if (!adapter) {

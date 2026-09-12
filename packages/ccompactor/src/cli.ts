@@ -134,6 +134,8 @@ program
   .command('extract <reference>')
   .description('Produce a handoff artifact from a session. The main command.')
   .option('--llm <mode>', 'none | auto | api:anthropic | api:openai | api:compat/<model>', 'auto')
+  .option('--format <kind>', 'handoff (default) or transcript', 'handoff')
+  .option('--full', 'with --format transcript, include tool calls and output')
   .option('--focus <text>', 'bias the summary toward this')
   .option('--instructions <text>', 'extra instructions for the summary')
   .option('--dry-run', 'plan the run without writing anything')
@@ -151,6 +153,8 @@ program
         ...(opts.instructions ? { instructions: opts.instructions } : {}),
         dryRun: opts.dryRun === true,
         anyProject: opts.anyProject === true,
+        format: opts.format === 'transcript' ? 'transcript' : 'handoff',
+        full: opts.full === true,
       },
       note,
     )
@@ -328,19 +332,29 @@ function sizeLabel(bytes: number | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** The value of a `--flag value` or `--flag=value` pair, before commander runs. */
+function flagValue(argv: string[], name: string): string | undefined {
+  for (const [i, arg] of argv.entries()) {
+    if (arg === name) return argv[i + 1]
+    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1)
+  }
+  return undefined
+}
+
 async function main(): Promise<number> {
   const argv = process.argv.slice(2)
   if (argv.length === 0) {
     program.help()
     return 0
   }
-  if (program.opts()['tui'] || argv[0] === '--tui') {
+  if (argv.includes('--tui')) {
+    // Read from argv, not from `program.opts()`: commander has not parsed
+    // anything at this point, so every option is undefined and `--out` was
+    // silently ignored in favour of the default.
     const { runTui } = await import('./tui/index.js')
-    // The global flag was documented and ignored: the TUI always wrote to
-    // `.ccompactor`, so `--out /tmp/x` silently went to the working directory.
     return runTui({
-      outDir: program.opts()['out'] ?? '.ccompactor',
-      anyProject: true,
+      outDir: flagValue(argv, '--out') ?? '.ccompactor',
+      anyProject: flagValue(argv, '--project') === undefined,
     })
   }
   try {
