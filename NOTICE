@@ -1,0 +1,50 @@
+# NOTICE
+
+## Vendored code that must not be published
+
+`packages/ccompactor/src/compact/vendor/` contains code copied from
+[openclaude](https://github.com/Gitlawb/openclaude), a community fork of
+Anthropic's Claude Code CLI, by `scripts/extract-openclaude-compact.ts`.
+
+openclaude's own LICENSE states:
+
+> The original Claude Code source is proprietary software:
+> Copyright (c) Anthropic PBC. All rights reserved. Subject to Anthropic's
+> Commercial Terms of Service. … The underlying derived code remains subject to
+> Anthropic's copyright. This project does not have Anthropic's authorization
+> to distribute their proprietary source.
+
+**Therefore that directory must never reach a registry.** It exists to reach
+behavioural parity quickly while the clean-room implementation in
+`packages/ccompactor/src/compact/engine.ts` is written. That file implements the
+same nine-section contract from its published description, with ccompactor's own
+wording, and imports nothing from `vendor/`.
+
+Two things make the replacement a plan rather than a hope:
+
+1. `packages/ccompactor/scripts/guard-vendor.mjs` runs on `prepublishOnly` and
+   **fails the publish** while vendored files are present.
+2. Everything outside `engine.ts` talks to `summarise()` and never to the
+   vendored module, so switching implementations is a change to one line.
+
+To delete the vendored code once parity is confirmed:
+
+```sh
+rm -rf packages/ccompactor/src/compact/vendor
+# then switch the delegate in src/compact/engine.ts to summariseWithContract
+```
+
+## What ccompactor owes to sctxx
+
+The product framing — cross-agent handoff, provenance on every claim, a verify
+step, layered artifacts — follows [sctxx](https://github.com/handyutils/sctxx)
+by the same author. None of its code is used; sctxx is Rust and ccompactor is
+TypeScript, and the two agree on behaviour rather than implementation.
+
+## What ccompactor owes to published research
+
+The compaction-side design follows the same survey sctxx's `docs/research/`
+records: observation masking as the cheapest strategy with an ablation
+(arXiv:2508.21433), addressable recall as what makes dropping safe
+(arXiv:2607.25066), and the finding that no published result measures a handoff
+to a different agent (arXiv:2606.02875).

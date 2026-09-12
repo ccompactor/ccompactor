@@ -1,0 +1,43 @@
+{
+  "name": "ccompactor",
+  "version": "0.1.0",
+  "description": "Extract any coding agent's session into a compact, verified, provenance-linked handoff any other agent can continue from.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "ccompactor": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "skill",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --experimental-strip-types src/cli.ts",
+    "test": "tsc -p tsconfig.test.json && node --test 'dist-test/tests/**/*.test.js'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "ink": "^6.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

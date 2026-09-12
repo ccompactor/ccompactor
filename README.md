@@ -1,127 +1,54 @@
-# oca
+# CCompactor
 
-**OCA — Open Coding Agent.**
-
-OCA is built on top of other open source agent tooling, vendored into this repository as git
-submodules. OCA tracks each upstream and layers its own work on top, so every fork point is
-explicit and reproducible.
-
----
-
-## Repository layout
-
-```
-oca/
-├── openclaude/                 # submodule -> https://github.com/Gitlawb/openclaude
-├── sctxx/                      # submodule -> https://github.com/handyutils/sctxx
-├── sync_openclaude.sh          # sync the openclaude submodule from its upstream
-├── sync_sctxx.sh               # sync the sctxx submodule from its upstream
-├── scripts/
-│   └── sync_submodule.sh       # shared engine used by both sync scripts
-├── .gitmodules                 # submodule definitions (upstream URLs)
-└── README.md
-```
-
-Each submodule is pinned to an exact upstream commit. That commit — not a branch — is what
-this repository records, so checkouts are deterministic.
-
-| Submodule | Upstream | Sync script |
-| --- | --- | --- |
-| `openclaude/` | [Gitlawb/openclaude](https://github.com/Gitlawb/openclaude) | `./sync_openclaude.sh` |
-| `sctxx/` | [handyutils/sctxx](https://github.com/handyutils/sctxx) | `./sync_sctxx.sh` |
-
----
-
-## Getting started
-
-Clone with submodules in one step:
+Extract any coding agent's session into a compact, verified, provenance-linked handoff that any
+other agent can continue from.
 
 ```sh
-git clone --recurse-submodules git@github.com:ccompactor/ccompactor.git
-cd ccompactor
+ccompactor list                       # what sessions exist
+ccompactor find "auth migration"      # find one by topic
+ccompactor extract claude:last        # the handoff artifact
+ccompactor handoff claude:last --to codex --run
 ```
 
-Already cloned without submodules? Initialize them:
+Same idea as [sctxx](https://github.com/handyutils/sctxx), in TypeScript.
+
+## Status
+
+Phase 0–1 of [`SPEC.md`](SPEC.md) are done: the CLI, session discovery, the Claude adapter, the
+deterministic ledgers, `extract --llm none`, `expand`, and `verify`. The compaction core is
+**vendored from openclaude and blocked from publication** — see [`NOTICE`](NOTICE).
 
 ```sh
-git submodule update --init --recursive
+cd packages/ccompactor && npm install && npm run build
+node dist/cli.js doctor
+node dist/cli.js extract claude:last --llm none --out .ccompactor
 ```
 
----
+## Commands
 
-## Syncing with upstream
-
-There is one script per submodule. Each one fetches its upstream, moves that submodule to the
-tip of the upstream default branch (`main`), and commits the new pin in this repository.
-
-```sh
-./sync_openclaude.sh              # fetch openclaude, update the submodule, commit the new pin
-./sync_openclaude.sh --dry-run    # show what would change, modify nothing
-./sync_openclaude.sh --push       # commit and push to origin in one go
-
-./sync_sctxx.sh                   # same, for sctxx
-./sync_sctxx.sh --dry-run
-./sync_sctxx.sh --push
-```
-
-Sync everything in one go:
-
-```sh
-./sync_openclaude.sh && ./sync_sctxx.sh
-```
-
-Both scripts share the same options:
-
-| Flag | Description |
+| command | what it does |
 | --- | --- |
-| `-b, --branch <name>` | Upstream branch to sync (default: `main`) |
-| `-r, --remote <name>` | Remote name used inside the submodule (default: `upstream`) |
-| `-n, --dry-run` | Show what would change; move and commit nothing |
-| `-c, --no-commit` | Move the submodule but leave the pin staged, not committed |
-| `-p, --push` | Push this repository to `origin` after committing |
-| `-f, --force` | Discard local changes inside the submodule if needed |
-| `-h, --help` | Show usage |
+| `doctor` | which agent stores and backends are on this machine |
+| `list` | sessions, newest first |
+| `find <query>` | fuzzy search over id, project, and the first thing the human asked |
+| `extract <ref>` | the handoff artifact |
+| `expand <ref> a..b` | the events behind an `[evt a–b]` pointer, in exact pages |
+| `verify <dir>` | re-check an artifact: schema, and whether its quotes are in the transcript |
+| `handoff <ref> --to <agent>` | launch a target agent with the context preloaded |
+| `--tui` | interactive browser |
 
-Environment overrides: `SYNC_UPSTREAM_URL`, `SYNC_BRANCH`, `SYNC_REMOTE`, `SYNC_GIT_NAME`,
-`SYNC_GIT_EMAIL`.
+Session refs: `claude:7c1e8f82`, `claude:last`, `codex:6f1a2b3c`, or a path to a transcript.
 
-Typical flow:
+## What it does and does not do
 
-```sh
-./sync_sctxx.sh --dry-run       # 1. see the incoming upstream commits
-./sync_sctxx.sh                 # 2. take them and record the new pin
-git push origin HEAD            # 3. share the pin (or use --push)
-```
+**Does:** read Claude Code / OpenClaude, Codex, and Pi transcripts; build deterministic ledgers of
+files, commands, errors and commits; extract the human's binding instructions by pattern; produce a
+layered artifact where every claim carries a recoverable pointer.
 
-Commits produced by the scripts are attributed to **Alexander Musichen** and look like:
+**Does not:** replace live `/compact` inside a running agent, mutate a source transcript, or claim
+bit-identical behaviour with proprietary Claude Code.
 
-```
-chore(submodule): sync sctxx to 37d60265877e (upstream/main)
-```
+## Licence
 
-### Working on top of a submodule
-
-If you need to change something inside a submodule, prefer contributing it upstream and pulling
-it back in with the matching sync script. If a change must stay local, don't leave it
-uncommitted inside the submodule — the scripts refuse to move a dirty submodule unless you pass
-`--force`, which discards those edits.
-
----
-
-## Manual sync (no script)
-
-```sh
-git submodule update --init --recursive
-git -C sctxx fetch upstream main
-git -C sctxx checkout --detach upstream/main
-git add .gitmodules sctxx
-git -c user.name="Alexander Musichen" -c user.email=alex.musichen@gmail.com \
-  commit -m "chore(submodule): sync sctxx to upstream/main"
-```
-
----
-
-## License
-
-Each upstream submodule is distributed under its own license — see the `LICENSE` file inside
-that submodule.
+MIT for ccompactor's own code. The vendored directory is **not** MIT and **not** publishable — see
+[`NOTICE`](NOTICE).

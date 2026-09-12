@@ -1,0 +1,310 @@
+/**
+ * The handoff artifact.
+ *
+ * Layered cheapest-first, like sctxx, because a reader should be able to stop
+ * as soon as it knows enough: the brief answers "what is this", the items
+ * answer "what do I need to know", and the retrieval layer says where the rest
+ * lives.
+ *
+ * Two rules are load-bearing and easy to break:
+ *
+ * 1. **Every claim carries its provenance.** A pointer is `[evt 12–19]`, and
+ *    `ccompactor expand` turns one back into the transcript. An artifact whose
+ *    claims cannot be checked is a summary, and a summary is what this tool
+ *    exists to replace.
+ *
+ * 2. **Nothing mandatory is dropped to fit a budget.** The constraints block
+ *    summarises itself rather than vanishing, because an artifact that fits its
+ *    budget by deleting the section its own preamble calls binding is not
+ *    smaller, it is wrong.
+ */
+import type { Ledgers } from '../ledgers/index.js'
+import type { Constraint } from '../triage.js'
+import type { SessionIR } from '../ir/types.js'
+import { approxTokens } from '../ir/tokens.js'
+
+export interface RenderInput {
+  ir: SessionIR
+  ledgers: Ledgers
+  constraints: Constraint[]
+  /** The model's continuation summary, when one was produced. */
+  summary?: string
+  /** Which engine produced the summary, for the header. */
+  engine: string
+  /** Optional user-supplied focus, echoed so a reader knows the lens. */
+  focus?: string
+}
+
+export interface Rendered {
+  markdown: string
+  json: Record<string, unknown>
+  tokens: number
+}
+
+/** The brief's own ceiling. A brief that does not fit a screen is not a brief. */
+const BRIEF_BUDGET = 1_200
+/** Tokens the constraints block may spend before it starts counting itself. */
+const CONSTRAINT_BUDGET = 700
+
+export function render(input: RenderInput): Rendered {
+  const { ir, ledgers, constraints } = input
+  const out: string[] = []
+  const lines: string[] = []
+
+  out.push(frontMatter(input))
+  out.push(`\n# Handoff: ${title(input)}\n`)
+  out.push(preamble())
+
+  let brief = ''
+  let budget = BRIEF_BUDGET
+
+  brief += `\n## L0 · Brief\n\n`
+
+  if (ledgers.errors.length > 0) {
+    // Before anything else: a reader who acts on a stale premise wastes the
+    // whole session, and an unresolved failure is the most common stale premise.
+    const top = ledgers.errors.slice(0, 3)
+    brief += `**Known-broken at the end of the session**\n`
+    for (const error of top) {
+      brief += `- ${oneLine(error.signature, 160)} (×${error.occurrences}) [evt ${error.evt}]\n`
+    }
+    brief += '\n'
+  }
+
+  const first = ledgers.userTurns[0]
+  const last = ledgers.userTurns.at(-1)
+  if (first) {
+    brief += `**Goal** (from the first user message, not model-inferred): ${oneLine(first.text, 300)} [evt ${first.evt}]\n\n`
+  }
+
+  // Constraints come this early on purpose: they outrank everything except the
+  // fact that something is broken, and they are never dropped whole.
+  if (constraints.length > 0) {
+    brief += renderConstraints(constraints)
+  }
+
+  if (ledgers.files.length > 0) {
+    const byDir = topDirectories(ledgers, 5)
+    brief += `**Where the work was**\n`
+    for (const [dir, count] of byDir) brief += `- \`${dir}\` — ${count} touch(es)\n`
+    brief += '\n'
+  }
+
+  if (ledgers.commits.length > 0) {
+    brief += `**What it committed** (${ledgers.commits.length} total)\n`
+    for (const commit of ledgers.commits.slice(-5).reverse()) {
+      brief += `- ${commit.subject} [evt ${commit.evt}]\n`
+    }
+    brief += '\n'
+  }
+
+  if (last && last !== first) {
+    brief += `**Last user request**: ${oneLine(last.text, 300)} [evt ${last.evt}]\n\n`
+  }
+
+  if (ledgers.commands.length > 0) {
+    const recent = ledgers.commands.slice(-3)
+    brief += `**Last commands**\n`
+    for (const command of recent) {
+      brief += `- \`${oneLine(command.command, 120)}\` — ${command.failed ? 'FAILED' : 'ok'} [evt ${command.evt}]\n`
+    }
+    brief += '\n'
+  }
+
+  if (input.focus) brief += `**Focus requested**: ${input.focus}\n\n`
+
+  brief += `**Verify first**\n- \`git status\`\n- \`git log --oneline -5\`\n\n`
+
+  out.push(brief)
+  budget -= Math.min(approxTokens(brief), budget)
+
+  // L1 — the items layer, from the model when there is one.
+  if (input.summary) {
+    out.push(`\n## L1 · Continuation summary\n\n${stripAnalysis(input.summary)}\n`)
+  } else {
+    out.push(
+      '\n## L1 · Continuation summary\n\n> No model ran, so there is no continuation summary. ' +
+        'What follows is what deterministic passes can prove — the ledgers. A rule stated ' +
+        'declaratively is absent rather than absent-minded; treat a missing fact as unknown, ' +
+        'not as permission. For the summary: `ccompactor extract <ref> --llm api:<provider>`.\n',
+    )
+  }
+
+  // L2 — ledgers, the evidence the summary cannot replace.
+  out.push(renderLedgers(input))
+
+  // L3 — retrieval, so that everything dropped is still reachable.
+  out.push(renderRetrieval(input))
+
+  const markdown = out.join('')
+  return {
+    markdown,
+    json: {
+      schema: 'ccompactor.handoff/v1',
+      version: '0.1.0',
+      session: {
+        agent: ir.ref.agent,
+        id: ir.ref.id,
+        path: ir.ref.path,
+        events: ir.messages.length,
+        userTurns: ledgers.counts.userTurns,
+        compactBoundaries: ir.compactBoundaries.length,
+      },
+      engine: input.engine,
+      constraints,
+      ledgers,
+      provenance: { source: ir.ref.path },
+    },
+    tokens: approxTokens(markdown),
+  }
+  void lines
+}
+
+function frontMatter(input: RenderInput): string {
+  const { ir, ledgers } = input
+  const cwd = ir.metadata['cwd']
+  return `---
+schema: ccompactor.handoff/v1
+ccompactor: 0.1.0
+source: {agent: ${ir.ref.agent}, session: ${ir.ref.id}, events: ${ir.messages.length}, user_turns: ${ledgers.counts.userTurns}, compact_boundaries: ${ir.compactBoundaries.length}${typeof cwd === 'string' ? `, cwd: ${cwd}` : ''}}
+engine: ${input.engine}
+llm: ${input.summary ? 'on' : 'none'}
+constraints: {found: ${input.constraints.length}}
+${ledgers.counts.failedCommands > 0 ? `failures: {at_end: ${ledgers.errors.length}, failed_commands: ${ledgers.counts.failedCommands}}\n` : ''}---
+`
+}
+
+function preamble(): string {
+  return `
+> A different coding agent worked on this task in an earlier session. What follows is a
+> compressed, provenance-linked record of that session. Use it to build on the work already done
+> instead of repeating it — but treat it as a map, not as ground truth. Run the verify-first
+> commands before changing anything, treat "Hard constraints" as binding, and expand any
+> \`[evt a–b]\` pointer you need with \`ccompactor expand\`.
+`
+}
+
+function title(input: RenderInput): string {
+  const first = input.ledgers.userTurns[0]
+  if (!first) return `${input.ir.ref.agent} session ${input.ir.ref.id}`
+  return oneLine(first.text, 160)
+}
+
+function renderConstraints(constraints: Constraint[]): string {
+  let block = `**Hard constraints** (standing instructions, quoted verbatim)\n`
+  let spent = approxTokens(block)
+  let shown = 0
+  for (const constraint of constraints) {
+    const line = `- "${oneLine(constraint.text, 240)}" [evt ${constraint.evt}]\n`
+    const cost = approxTokens(line)
+    if (shown > 0 && spent + cost > CONSTRAINT_BUDGET) break
+    spent += cost
+    shown += 1
+    block += line
+  }
+  if (shown < constraints.length) {
+    block += `- … and ${constraints.length - shown} more\n`
+  }
+  block += '\n'
+  return block
+}
+
+function renderLedgers(input: RenderInput): string {
+  const { ledgers } = input
+  let out = `\n## L2 · Ledgers (deterministic, no model)\n\n`
+
+  if (ledgers.files.length > 0) {
+    out += `### Files touched (${ledgers.files.length})\n`
+    for (const file of ledgers.files.slice(0, 40)) {
+      const parts: string[] = []
+      if (file.edits > 0) parts.push(`edit×${file.edits}`)
+      if (file.writes > 0) parts.push(`write×${file.writes}`)
+      if (file.reads > 0) parts.push(`read×${file.reads}`)
+      out += `- \`${file.path}\` — ${parts.join(' ') || 'touched'} [evt ${file.firstEvt}–${file.lastEvt}]\n`
+    }
+    if (ledgers.files.length > 40) out += `- … and ${ledgers.files.length - 40} more\n`
+    out += '\n'
+  }
+
+  if (ledgers.commands.length > 0) {
+    out += `### Commands (${ledgers.commands.length}, ${ledgers.counts.failedCommands} failed)\n`
+    const interesting = [
+      ...ledgers.commands.filter((c) => c.failed).slice(-12),
+      ...ledgers.commands.slice(-6),
+    ]
+    const unique = [...new Map(interesting.map((c) => [`${c.evt}:${c.command}`, c])).values()]
+    for (const command of unique) {
+      out += `- \`${oneLine(command.command, 160)}\` — ${command.failed ? 'FAILED' : 'ok'} [evt ${command.evt}]\n`
+      if (command.failed && command.outputHead) {
+        out += `  > ${oneLine(command.outputHead, 200)}\n`
+      }
+    }
+    out += '\n'
+  }
+
+  if (ledgers.errors.length > 0) {
+    out += `### Error signatures (${ledgers.errors.length})\n`
+    for (const error of ledgers.errors.slice(0, 12)) {
+      out += `- ×${error.occurrences} ${oneLine(error.signature, 200)} [evt ${error.evt}]\n`
+    }
+    out += '\n'
+  }
+
+  if (ledgers.toolUse.length > 0) {
+    out += `### What was used\n${ledgers.toolUse
+      .slice(0, 8)
+      .map((t) => `\`${t.name}\`×${t.count}`)
+      .join(' · ')}\n\n`
+  }
+
+  return out
+}
+
+function renderRetrieval(input: RenderInput): string {
+  const { ir, ledgers } = input
+  const reference = `${ir.ref.agent}:${ir.ref.id}`
+  let out = `\n## L3 · Retrieval\n\nSource: \`${ir.ref.path}\`\n\n`
+  out += `Expand any pointer:\n\`\`\`sh\nccompactor expand ${reference} <a>..<b> --context 3\n\`\`\`\n\n`
+
+  // What the artifact did not carry, so dropping it stays recoverable. Selection
+  // is the cheapest strategy there is, but only for a reader who can look again.
+  const carried = new Set<number>()
+  for (const file of ledgers.files.slice(0, 40)) carried.add(file.firstEvt)
+  if (ledgers.userTurns.length > 0) {
+    const step = Math.max(1, Math.floor(ledgers.userTurns.length / 12))
+    out += `**User turns not quoted above** (${ledgers.userTurns.length} total):\n`
+    for (let i = 0; i < ledgers.userTurns.length; i += step) {
+      const turn = ledgers.userTurns[i]!
+      out += `- evt ${turn.evt} · ${oneLine(turn.text, 110)}\n`
+    }
+    out += '\n'
+  }
+  return out
+}
+
+/** Drop the model's scratchpad; only the summary itself is for the reader. */
+export function stripAnalysis(text: string): string {
+  const withoutAnalysis = text.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '').trim()
+  const summary = /<summary>([\s\S]*?)<\/summary>/i.exec(withoutAnalysis)
+  return (summary ? summary[1]! : withoutAnalysis).trim()
+}
+
+/** Tokens per top-level directory, busiest first. */
+function topDirectories(ledgers: Ledgers, limit: number): Array<[string, number]> {
+  const counts = new Map<string, number>()
+  for (const file of ledgers.files) {
+    const parts = file.path.split('/').filter(Boolean)
+    const dir = parts.slice(0, Math.min(2, Math.max(1, parts.length - 1))).join('/')
+    counts.set(dir, (counts.get(dir) ?? 0) + file.edits * 3 + file.writes * 3 + file.reads)
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+}
+
+/** Collapse whitespace and truncate on a word boundary. */
+export function oneLine(text: string, max: number): string {
+  const single = text.replace(/\s+/g, ' ').trim()
+  if (single.length <= max) return single
+  return `${single.slice(0, max - 1).replace(/\s\S*$/, '')}…`
+}

@@ -1,0 +1,10 @@
+{
+  "generatedBy": "scripts/extract-openclaude-compact.ts",
+  "upstream": "https://github.com/Gitlawb/openclaude",
+  "upstreamPath": "src/services/compact",
+  "note": "Derived from Anthropic Claude Code. Must not be published. See NOTICE.",
+  "modules": [
+    "prompt.ts",
+    "grouping.ts"
+  ]
+}
