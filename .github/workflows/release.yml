@@ -38,6 +38,20 @@ jobs:
       # A re-run of a release whose version is already on the registry is a
       # skip, not a failure. Without this, re-running the workflow to rebuild
       # binaries for an existing version reports the whole release as broken.
+      # A tag that does not match package.json publishes nothing: the guard
+      # below finds the *old* version already on the registry and skips, and the
+      # workflow reports success. Tagging four commits in a row without bumping
+      # the version is exactly how that happens.
+      - name: the tag and package.json agree
+        if: github.ref_type == 'tag'
+        run: |
+          set -e
+          PKG=$(node -p "require('./packages/ccompactor/package.json').version")
+          TAG="${{ github.ref_name }}"
+          if [ "v$PKG" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match package.json version $PKG"
+            exit 1
+          fi
       - name: already published?
         id: published
         working-directory: packages/ccompactor
