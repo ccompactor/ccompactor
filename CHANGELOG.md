@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.14] — 2026-09-14
+
+### Added
+
+- **`doctor` lists every `ccompactor` on `PATH`, with the version each one reports**, and marks the
+  running copy. `update` prints the same thing before it changes anything.
+
+  This came from a real failure on this machine: `npm root -g` had 0.1.13 installed and its
+  `dist/version.js` agreed, yet `ccompactor --version` printed 0.1.12 — a pnpm global install sat
+  earlier on `PATH` behind a shim. Both copies were installed correctly, only one of them ran, and
+  nothing in the tool mentioned the second one. An updater cannot fix a copy that shadows it; it can
+  at least say that it is there.
+
 ## [0.1.13] — 2026-09-14
 
 ### Added

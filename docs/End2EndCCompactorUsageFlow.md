@@ -142,8 +142,9 @@ ccompactor doctor
 ccompactor --json doctor
 ```
 
-Prints the three adapter stores with `found` / `not found`, per-agent session counts, and which LLM
-backends are usable right now. No flags. JSON schema `ccompactor.doctor/v1`.
+Prints the three adapter stores with `found` / `not found`, per-agent session counts, which LLM
+backends are usable right now, and every `ccompactor` on `PATH` with its version. No flags. JSON
+schema `ccompactor.doctor/v1`.
 
 ```sh
 $ ccompactor doctor
@@ -160,7 +161,17 @@ auto                 currently resolves to none
 api:anthropic        ANTHROPIC_API_KEY not set
 api:openai           OPENAI_API_KEY not set
 api:compat/<model>   CCOMPACTOR_BASE_URL not set, CCOMPACTOR_API_KEY not set
+
+INSTALL                                                      VERSION
+/Users/you/.local/bin/ccompactor                             0.1.14
+/Users/you/.nvm/versions/node/v24/bin/ccompactor             0.1.14
 ```
+
+**Two global installs is the trap this catches.** `npm i -g` and `pnpm add -g` write to different
+places, and whichever shim comes first on `PATH` is the one that runs. A release can be installed
+correctly and still not take effect, and `ccompactor --version` reports the old number with nothing
+to explain why. `doctor` lists every copy it finds on `PATH` and marks the running one; `update`
+says the same thing before it changes anything.
 
 ### 6.2 `list` — sessions, newest first
 
@@ -804,6 +815,14 @@ a first run ends with a new directory holding five files and no instruction.
 `no session matches '13'` — with no mention of the project filter, of `--any-project`, or of the
 sessions that would have matched without it.
 
+### Two global installs look like one
+
+Observed on this machine: `npm root -g` had 0.1.13 installed and its `dist/version.js` agreed, while
+`ccompactor --version` printed 0.1.12 — because a pnpm global install sat earlier on `PATH` behind a
+shim. Both were installed correctly. Only one ran. `doctor` now lists them, but the underlying
+problem remains: `ccompactor update` updates *the copy it is*, and no updater can fix a different
+copy that shadows it. A launcher that resolves the newest of the copies on `PATH` would.
+
 ### Discovery is three commands deep
 
 `doctor` (are the stores there) → `list` (what sessions) → `find` (which one) → `resolve` (is this the
@@ -826,4 +845,5 @@ this directory" command, which is the overwhelmingly common case.
 | **arm** | one of `none`, `tail`, `artifact`, `retrieval` in the benchmark |
 | **expansion** | a retrieval round in which the successor asks for a range of raw events |
 | **narrate** | the second-stage pass that writes L1 from an existing artifact rather than from the transcript |
+| **shadowed** | a second copy of ccompactor earlier on `PATH` than the one you are running |
 | **install kind** | how this copy of ccompactor got here — npm global, standalone binary, project-local, source checkout |

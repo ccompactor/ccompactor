@@ -76,6 +76,28 @@ program
     // the half a developer has to choose before `extract` will summarise
     // anything: `--llm none` always works, everything else needs a key.
     lines.push(...table(['BACKEND', 'STATUS'], backends.map((b) => [b.backend, b.status])).split('\n'))
+
+    // Every copy on PATH, because two global installs is a state that nothing in
+    // the tool used to mention and that a user cannot easily see.
+    const { installations, versionConflicts } = await import('./install.js')
+    const copies = installations()
+    lines.push('')
+    lines.push(
+      ...table(
+        ['INSTALL', 'VERSION', ''],
+        copies.map((entry) => [
+          entry.path,
+          entry.version ?? 'did not answer',
+          entry.current ? 'this one' : '',
+        ]),
+      ).split('\n'),
+    )
+    if (versionConflicts(copies).length > 0) {
+      lines.push('')
+      lines.push(
+        `warning: ${copies.length} copies on PATH and they disagree; \`ccompactor\` runs ${copies[0]!.path}`,
+      )
+    }
     emit(null, lines.join('\n'))
   })
 
@@ -342,6 +364,12 @@ program
       )
       return
     }
+    // Updating this copy does not update the one that runs, if a different one
+    // is earlier on PATH — which is exactly how a release can be installed and
+    // still not take effect.
+    const { installations, describeConflicts } = await import('./install.js')
+    const extra = describeConflicts(installations(), result.current)
+    if (extra.length > 0) process.stderr.write(`${extra.join('\n')}\n`)
     emit(null, result.message)
     // `--check` is asked as a question, so "an update is available" is not a
     // failure. Everywhere else a declined update exits non-zero, which is what
@@ -466,6 +494,7 @@ function table(head: string[], rows: string[][]): string {
 /** Which `--llm` modes this machine can actually use right now. */
 async function backendRows(): Promise<Array<{ backend: string; status: string }>> {
   const { resolveAuto, selectionLabel } = await import('./llm/index.js')
+  void 0
   const auto = resolveAuto()
   const key = (name: string) => (process.env[name] ? 'set' : 'not set')
   return [
