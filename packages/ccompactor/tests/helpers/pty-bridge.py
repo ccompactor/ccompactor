@@ -30,17 +30,33 @@ def main() -> int:
     rows = int(sys.argv[2])
     argv = sys.argv[3:]
 
-    pid, master = pty.fork()
+    # The window size is set on the slave *before* the child exists.
+    #
+    # `pty.fork()` then a `TIOCSWINSZ` is a race the child can lose: it starts,
+    # reads `columns` as 0, and on Linux that is what it renders to — Ink wrote
+    # no frame at all, which is how a TUI ends up producing nothing but the
+    # mouse-tracking escape and looking hung.
+    master, slave = pty.openpty()
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
+
+    pid = os.fork()
     if pid == 0:
-        # The child gets the pty as its controlling terminal, so `isTTY` is true
-        # and the TUI's own gate on stdin passes.
         try:
+            os.close(master)
+            os.setsid()
+            # Become the controlling terminal, so `isTTY` is true for the child
+            # and the TUI's own gate on stdin passes.
+            fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+            os.dup2(slave, 0)
+            os.dup2(slave, 1)
+            os.dup2(slave, 2)
+            if slave > 2:
+                os.close(slave)
             os.execvp(argv[0], argv)
         except OSError as error:
             sys.stderr.write(f"pty-bridge: cannot exec {argv[0]}: {error}\n")
             os._exit(127)
-
-    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
+    os.close(slave)
 
     stdin_fd = sys.stdin.fileno()
     stdout_fd = sys.stdout.fileno()
