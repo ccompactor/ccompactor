@@ -483,7 +483,11 @@ async function main(): Promise<number> {
   }
   try {
     await program.parseAsync(process.argv)
-    return 0
+    // An action's `process.exitCode` is the command's answer: `verify --strict`
+    // documents exit 7, and `handoff --run` mirrors the agent it launched.
+    // Returning a fixed 0 discarded both, and `process.exit(0)` below made it
+    // final.
+    return typeof process.exitCode === 'number' ? process.exitCode : 0
   } catch (error) {
     const code = (error as { exitCode?: number }).exitCode ?? 1
     if (error instanceof AmbiguousError) {

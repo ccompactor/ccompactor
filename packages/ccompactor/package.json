@@ -1,6 +1,6 @@
 {
   "name": "ccompactor",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Extract any coding-agent session (Claude Code, Codex, Pi) into a compact, verified, provenance-linked handoff that any other agent can continue from.",
   "type": "module",
   "license": "MIT",

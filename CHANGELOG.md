@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.9] — 2026-09-14
+
+### Fixed
+
+- **No command's exit code reached the shell.** `main()` returned a fixed `0` and then called
+  `process.exit(0)`, which discarded the `process.exitCode` every action sets. `verify --strict` has
+  documented exit 7 since the first release and always exited 0; `handoff --run` never mirrored the
+  agent it launched. Both do now, and the entry point returns what the command decided.
+- **`ccompactor update` on a project-local copy exits non-zero** when an update is available and it
+  declined to apply it, so a script wrapping it notices. `--check` and `--dry-run` still exit 0,
+  because they were asked a question and answered it.
+- **`update` installs the npm dist-tag rather than a pinned version**, which is what npm owns, and
+  avoids the `notarget` failure a stale registry cache produces on exactly the machines that are
+  behind.
+
 ## [0.1.8] — 2026-09-14
 
 ### Added

@@ -311,7 +311,10 @@ export async function update(options: UpdateOptions = {}): Promise<UpdateResult>
   }
 
   if (install.kind === 'npm-global') {
-    execFileSync(npmCommand(), ['install', '--global', `${NPM_PACKAGE}@${latest}`], {
+    // `@latest` rather than the version resolved above: npm owns the dist-tag,
+    // and pinning to a version a stale registry cache has not heard of fails
+    // with `notarget` on exactly the machines that are behind.
+    execFileSync(npmCommand(), ['install', '--global', `${NPM_PACKAGE}@latest`], {
       stdio: 'inherit',
     })
     return { ...base, latest, changed: true, message: `${lead} — installed via npm.` }
