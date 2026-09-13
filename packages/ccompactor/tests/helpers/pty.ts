@@ -234,6 +234,8 @@ export class Tui {
     const bits = [
       `argv: ${this.argv.join(' ')}`,
       `child pid ${this.child.pid ?? '?'}, running: ${!this.exited}`,
+      `bytes received: ${this.buffer.length}`,
+      `raw head: ${JSON.stringify(this.buffer.slice(0, 240))}`,
       `stderr: ${this.errors.trim() || '(none)'}`,
       this.spawnError ? `spawn error: ${this.spawnError}` : '',
     ]
