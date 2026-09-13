@@ -27,6 +27,20 @@ async function start(outDir?: string): Promise<{ tui: Tui; store: ReturnType<typ
   return { tui, store }
 }
 
+test('the pty bridge can run the CLI itself', opts, async () => {
+  // Narrowing: a trivial program through the bridge, then the real program
+  // without the TUI. If this passes and the TUI is still silent, the difference
+  // is the TUI rather than the harness.
+  const store = fixtureStore(1)
+  const tui = new Tui([process.execPath, CLI, '--version'], { env: store.env, cwd: store.cwd })
+  try {
+    await tui.waitFor(/\d+\.\d+\.\d+/, 10000)
+  } finally {
+    await tui.close()
+    store.cleanup()
+  }
+})
+
 test('the pty bridge can run a trivial program', opts, async () => {
   // The harness itself, before anything that depends on it. Without this the
   // first symptom of a broken bridge is twenty-three identical timeouts with no
