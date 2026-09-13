@@ -187,7 +187,7 @@ function frontMatter(input: RenderInput): string {
   const cwd = ir.metadata['cwd']
   return `---
 schema: ccompactor.handoff/v1
-ccompactor: 0.1.2
+ccompactor: ${VERSION}
 source: {agent: ${ir.ref.agent}, session: ${ir.ref.id}, events: ${ir.messages.length}, user_turns: ${ledgers.counts.userTurns}, compact_boundaries: ${ir.compactBoundaries.length}${typeof cwd === 'string' ? `, cwd: ${cwd}` : ''}}
 engine: ${input.engine}
 llm: ${input.summary ? 'on' : 'none'}

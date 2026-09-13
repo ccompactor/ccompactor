@@ -30,13 +30,34 @@ export interface ExpandOptions {
   page?: Page
 }
 
-export async function expand(
+export interface ExpandedRange {
+  /** The range the pointer named. */
+  from: number
+  to: number
+  /** The range actually covered, after `--context`. */
+  start: number
+  end: number
+  /** Present when the caller asked for a page. */
+  page?: { index: number; of: number; first: number; last: number }
+  /** One rendered line per event, in order. */
+  events: string[]
+  tokens: number
+}
+
+/**
+ * Resolve pointers to the events behind them.
+ *
+ * Returns structure rather than text so `--json` can carry the events: it used
+ * to hand `null` to the JSON emitter, because the only thing this produced was a
+ * rendered string. A script asking for a pointer's events got nothing at all.
+ */
+export async function expandRange(
   ir: SessionIR,
   ranges: Array<[number, number]>,
   options: ExpandOptions = {},
-): Promise<string> {
+): Promise<ExpandedRange[]> {
   const context = options.context ?? 0
-  const out: string[] = []
+  const out: ExpandedRange[] = []
 
   for (const [from, to] of ranges) {
     const start = Math.max(0, from - context)
@@ -71,36 +92,63 @@ export async function expand(
 
     const ordered = [...byIndex.entries()].sort((a, b) => a[0] - b[0])
     const rendered = ordered.map(([, text]) => text)
+    const tokens = rendered.reduce((n, t) => n + Math.ceil(t.length / 4), 0)
 
-    if (rendered.length === 0) {
-      out.push(`=== evt ${start}–${end} ===\n(no events in this range)\n`)
-      continue
-    }
-
-    if (!options.page) {
-      out.push(`=== evt ${start}–${end} ===\n${rendered.join('\n')}\n`)
+    if (rendered.length === 0 || !options.page) {
+      out.push({ from, to, start, end, events: rendered, tokens })
       continue
     }
 
     const pages = paginate(rendered, options.page.tokens)
     const index = Math.min(Math.max(1, options.page.index), pages.length)
     const slice = pages[index - 1]!
-    const first = firstIndex(slice) ?? start
-    const last = lastIndex(slice) ?? end
-    out.push(
-      `=== evt ${start}–${end} · page ${index}/${pages.length} · evt ${first}–${last} · ${slice.reduce((n, t) => n + Math.ceil(t.length / 4), 0)} token(s) ===`,
-    )
-    out.push(slice.join('\n'))
-    if (pages.length > 1) {
-      const next = index === pages.length ? 1 : index + 1
-      out.push(
-        `\n--- page ${index} of ${pages.length}; page ${next} is \`ccompactor expand <ref> ${from}..${to} --page ${next}\` ---`,
-      )
-    }
-    out.push('')
+    out.push({
+      from,
+      to,
+      start,
+      end,
+      page: {
+        index,
+        of: pages.length,
+        first: firstIndex(slice) ?? start,
+        last: lastIndex(slice) ?? end,
+      },
+      events: slice,
+      tokens: slice.reduce((n, t) => n + Math.ceil(t.length / 4), 0),
+    })
   }
 
-  return out.join('\n')
+  return out
+}
+
+/** The same thing as text, which is what a person reads. */
+export async function expand(
+  ir: SessionIR,
+  ranges: Array<[number, number]>,
+  options: ExpandOptions = {},
+): Promise<string> {
+  return (await expandRange(ir, ranges, options)).map(renderRange).join('\n')
+}
+
+function renderRange(range: ExpandedRange): string {
+  if (range.events.length === 0) {
+    return `=== evt ${range.start}–${range.end} ===\n(no events in this range)\n`
+  }
+  if (!range.page) {
+    return `=== evt ${range.start}–${range.end} ===\n${range.events.join('\n')}\n`
+  }
+  const lines = [
+    `=== evt ${range.start}–${range.end} · page ${range.page.index}/${range.page.of} · evt ${range.page.first}–${range.page.last} · ${range.tokens} token(s) ===`,
+    range.events.join('\n'),
+  ]
+  if (range.page.of > 1) {
+    const next = range.page.index === range.page.of ? 1 : range.page.index + 1
+    lines.push(
+      `\n--- page ${range.page.index} of ${range.page.of}; page ${next} is \`ccompactor expand <ref> ${range.from}..${range.to} --page ${next}\` ---`,
+    )
+  }
+  lines.push('')
+  return lines.join('\n')
 }
 
 function firstIndex(lines: string[]): number | undefined {

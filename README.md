@@ -73,6 +73,12 @@ ccompactor extract claude:last --llm none --out .ccompactor
 ccompactor --tui
 ```
 
+## Docs
+
+- [`docs/End2EndCCompactorUsageFlow.md`](docs/End2EndCCompactorUsageFlow.md) — every command, flag, exit code and
+  output file, with a worked run of each and a list of where the UX is rough.
+- [`SPEC.md`](SPEC.md) — the design.
+
 ## Commands
 
 | command | what it does |

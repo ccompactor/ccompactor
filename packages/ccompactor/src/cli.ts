@@ -183,17 +183,29 @@ program
   .option('--any-project', 'ignore the project filter')
   .action(async (reference: string, ranges: string[], opts) => {
     const { resolveSession, readSession } = await import('./discover/index.js')
-    const { expand, parseRange } = await import('./artifact/expand.js')
+    const { expand, expandRange, parseRange } = await import('./artifact/expand.js')
     const ref = await resolveSession(reference, { anyProject: opts.anyProject === true })
     const ir = await readSession(ref)
     const parsed = ranges.map(parseRange)
-    emit(
-      null,
-      await expand(ir, parsed, {
-        context: opts.context,
-        page: { index: opts.page, tokens: opts.maxPayload },
-      }),
-    )
+    const options = {
+      context: opts.context,
+      page: { index: opts.page, tokens: opts.maxPayload },
+    }
+    if (program.opts()['json']) {
+      // `expandRange` rather than `expand`: the JSON form carries the events
+      // themselves. This used to emit `null`, because the only thing the
+      // expansion produced was a rendered string.
+      emit(
+        {
+          schema: 'ccompactor.expand/v1',
+          session: { agent: ref.agent, id: ref.id, path: ref.path },
+          ranges: await expandRange(ir, parsed, options),
+        },
+        '',
+      )
+      return
+    }
+    emit(null, await expand(ir, parsed, options))
   })
 
 program

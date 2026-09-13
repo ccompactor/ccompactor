@@ -17,3 +17,18 @@ test('the compiled-in version matches package.json', () => {
   ) as { version: string }
   assert.equal(VERSION, pkg.version, 'run `npm run build` to regenerate src/version.ts')
 })
+
+test('the artifact says which version wrote it, and it is this one', () => {
+  // `handoff.md` carried `ccompactor: 0.1.2` in its front matter for five
+  // releases. `--version` was fixed first, then the copy in handoff.json; this
+  // was the third and the hardest to notice, because a YAML block at the top of
+  // a file is not something anyone reads twice.
+  // The compiled copy, which is the one these tests exercise.
+  const source = readFileSync(new URL('../src/artifact/render.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(
+    source,
+    /ccompactor: \d/,
+    'the front matter must interpolate VERSION, not spell a version out',
+  )
+  assert.match(source, /ccompactor: \$\{VERSION\}/)
+})

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.12] — 2026-09-14
+
+### Added
+
+- **`docs/End2EndCCompactorUsageFlow.md`** — every flag, command, exit code, environment variable,
+  output file and schema, with a worked run of each and an honest list of where the experience is
+  bad today. Written to be handed to whoever redesigns the UX/DX.
+
+### Fixed
+
+- **`ccompactor --json expand` printed `null`.** The expansion produced a rendered string and nothing
+  else, so there was no value to emit — a script asking for the events behind a pointer got nothing.
+  It now returns the events, and the text form renders from the same structure so the two cannot
+  disagree.
+- **The artifact's front matter said `ccompactor: 0.1.2`** through five releases. This was the third
+  copy of that stale constant: `--version` was fixed first, then the copy in `handoff.json`, and
+  this one hid inside a template literal where a search for a quoted version could not find it. A
+  test now fails if the front matter ever spells a version out instead of interpolating it.
+
 ## [0.1.11] — 2026-09-14
 
 ### Added
