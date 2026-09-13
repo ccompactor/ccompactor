@@ -17,7 +17,7 @@
  * it matched, so each step looks only at output produced after the last one.
  */
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -25,7 +25,14 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 /** dist-test/tests/helpers -> dist-test/tests -> the package */
 const PACKAGE = join(here, '..', '..', '..')
-export const CLI = join(PACKAGE, 'dist', 'cli.js')
+/**
+ * The CLI that `npm test` just compiled.
+ *
+ * Not `dist/cli.js`: CI runs the tests without building `dist/`, so pointing
+ * there failed twenty-three tests with "cannot find module" on a machine where
+ * every one of them would have passed.
+ */
+export const CLI = join(PACKAGE, 'dist-test', 'src', 'cli.js')
 
 // The bridge is Python, so it is not part of the TypeScript build. Resolved
 // against the package rather than this file, which lives in `dist-test`.
@@ -38,9 +45,10 @@ function python(): string {
 /** The pty is the thing being tested, and Windows has no `fork`. */
 export const canDrive = process.platform === 'darwin' || process.platform === 'linux'
 
-/** Is there an interpreter to allocate the pty with? */
+/** Is there an interpreter to allocate the pty with, and a program to run? */
 export function hasBridge(): boolean {
   if (!canDrive) return false
+  if (!existsSync(CLI)) return false
   try {
     return spawnSync(python(), ['-c', 'import pty'], { stdio: 'ignore' }).status === 0
   } catch {
