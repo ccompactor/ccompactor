@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { CLI, Tui, canDrive, fixtureStore, hasBridge } from './helpers/pty.js'
+import { CLI, PACKAGE_FOR_PROBE, Tui, canDrive, fixtureStore, hasBridge } from './helpers/pty.js'
 
 const opts = {
   skip: canDrive && hasBridge() ? false : 'needs a pty: unix, and a python3 with the pty module',
@@ -26,6 +26,19 @@ async function start(outDir?: string): Promise<{ tui: Tui; store: ReturnType<typ
   await tui.waitFor(/ccompactor\s+all 3/)
   return { tui, store }
 }
+
+test('a minimal Ink program renders through the bridge', opts, async () => {
+  // Separates "Ink does not render here" from "this TUI does not render here".
+  const store = fixtureStore(1)
+  const probe = join(PACKAGE_FOR_PROBE, 'tests', 'helpers', 'ink-probe.mjs')
+  const tui = new Tui([process.execPath, probe], { env: store.env, cwd: store.cwd })
+  try {
+    await tui.waitFor(/INK-PROBE-OK/, 12000)
+  } finally {
+    await tui.close()
+    store.cleanup()
+  }
+})
 
 test('the pty bridge can run the CLI itself', opts, async () => {
   // Narrowing: a trivial program through the bridge, then the real program

@@ -33,6 +33,7 @@ const PACKAGE = join(here, '..', '..', '..')
  * every one of them would have passed.
  */
 export const CLI = join(PACKAGE, 'dist-test', 'src', 'cli.js')
+export { PACKAGE as PACKAGE_FOR_PROBE }
 
 // The bridge is Python, so it is not part of the TypeScript build. Resolved
 // against the package rather than this file, which lives in `dist-test`.
