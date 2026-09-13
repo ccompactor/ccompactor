@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.16] — 2026-09-14
+
+### Changed
+
+- **The TUI is a frame rather than a sequence of screens.** A top bar carries the coding agents
+  detected on this machine with their real session counts; a sidebar carries one entry per thing the
+  tool can do — Sessions, Artifacts, Doctor, Skill, Update, Settings, Exit — each of which also
+  exists on the command line; a bottom bar splits navigation from actions, because one flat list of
+  shortcuts does not tell a reader which keys move them and which will write a file.
+
+  Decisions moved into pop-up dialogs over the frame, so the list you were reading stays where it
+  was: the quick look, the session's actions, which agent to continue in, progress, results, and the
+  Doctor report.
+
+  Every cell of every bar is still clickable and the wheel still scrolls, but the geometry moved into
+  `src/tui/frame.ts` with unit tests around it. The bug this area had before was a click landing on
+  the row below the one it was drawn on, and that is arithmetic.
+
+### Fixed
+
+- **The top bar and the bottom bar could each overflow by one column**, which Ink wraps onto a second
+  line and the frame then scrolls. The pad between the top bar's blocks did not account for the join
+  between them, and the bottom bar's did not account for the two around its spacer — so the last
+  action button was silently dropped from a 120-column terminal.
+- **Reports were computed and never drawn.** Doctor, Skill and Update set a report that only the
+  dialog renderer read, and only while a different dialog was open.
+
+### Added
+
+- `tests/frame.test.ts` — the sidebar covers every page and reaches none twice, action keys survive a
+  narrow terminal while captions do not, and a tab answers only at the columns it was drawn on.
+
 ## [0.1.15] — 2026-09-14
 
 ### Fixed

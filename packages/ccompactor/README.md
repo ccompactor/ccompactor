@@ -65,32 +65,35 @@ ccompactor expand claude:7c1e8f82 4122..4381 --context 3
 ccompactor --tui
 ```
 
-Every shortcut is also a button on the top bar, so nothing has to be memorised:
+A frame with a top bar, a sidebar, a content pane and a bottom bar — and every cell of all three
+bars is clickable, so nothing has to be memorised:
 
 ```
- ccompactor   352 of 720    all   claude 352   codex 194   pi 174
-[/ search] [0 all agents] [↵ quick look] [a actions] [q quit]
+ ccompactor      all 725   claude 357   codex 194   pi 174                out: .ccompactor
+╭────────────────────╮╭──────────────────────────────────────────────────────────────╮
+│ Sessions           ││ 725 of 725 session(s)                                        │
+│ Artifacts          ││ AGENT   SESSION ID              MODIFIED                     │
+│ Doctor             ││❯ claude  c36bd8f6-0cb2-4253…   2026-09-13 18:17   1456 msg   │
+│ Skill              ││  claude  1367d688-7dcd-43d8…   2026-09-13 18:10              │
+│ Update             ││                                                              │
+│ Settings           ││                                                              │
+│ Exit               ││                                                              │
+╰────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ NAV  ←→ pane  ↑↓ move  ⏎ select  / filter  esc back  ? help   ACT  v look  a actions
 ```
 
-The agent chips filter. The bar shows every action on the current screen, and the keys are printed
-on the buttons so you learn them by using them. On a narrow terminal the captions drop and the keys
-stay — `[a]` is still a button. Rows, chips, buttons and menu items are all clickable, and the wheel
-scrolls the list and the quick look.
+The **top bar** is the coding agents detected on this machine, with real session counts; clicking
+one filters to it. The **sidebar** is one entry per thing the tool can do — Sessions, Artifacts,
+Doctor, Skill, Update, Settings, Exit — and each exists on the command line too. The **bottom bar**
+splits navigation from actions, because one flat list of shortcuts does not tell you which keys
+move you and which write a file.
 
-## Two stages: free first, then cheap
+Decisions happen in pop-up dialogs: the quick look, the session's actions, which agent to continue
+in, progress, results, and the Doctor report. Items in them are clickable. Rows, tabs, sidebar
+entries, bar buttons and dialog items all respond to the mouse, and the wheel scrolls.
 
-```sh
-ccompactor extract claude:last --llm none                    # deterministic, offline, 2.6 s
-ccompactor narrate .ccompactor --llm api:compat/deepseek-chat  # a model reads the artifact
-```
-
-`extract --llm` asks a model to summarise a digest of the *transcript* — on a 286-event session,
-about 29,550 input tokens. `narrate` asks it to write from the *artifact*, which is about 5,050 and
-has already been compressed, verified and given `[evt N]` pointers. Nearly 6× cheaper, and grounded:
-what it writes back cites lines you can check.
-
-With `--llm none`, L1 is no longer empty. It carries the session's shape read off the ledgers — where
-the effort went, and how the work moved — so a deterministic artifact is useful on its own.
+On a narrow terminal captions drop before buttons do — at 80 columns the bar reads `ACT  v  a` and
+both keys still work.
 
 ## The model is optional
 

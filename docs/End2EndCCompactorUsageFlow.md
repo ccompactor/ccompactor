@@ -521,55 +521,120 @@ ccompactor --out /tmp/handoffs --tui
 
 Requires a real terminal; it refuses with exit 1 if stdin is not a tty.
 
+The layout is a frame with four regions, and every region is clickable:
+
 ```
- ccompactor   720 of 720    all   claude 352   codex 194   pi 174
-[/ search] [0 all agents] [↵ quick look] [a actions] [q quit]
-  AGENT   SESSION ID                                     MSGS  TURNS      SIZE          MODIFIED
-❯ claude  1367d688-7dcd-43d8-8d4a-30210a3137f6               ·      ·  283.4 MB  2026-09-13 11:21
-click a row, scroll, or type c/x/p// to narrow
+ ccompactor      all 725   claude 357   codex 194   pi 174                out: .ccompactor
+╭────────────────────╮╭──────────────────────────────────────────────────────────────╮
+│ Sessions           ││ 725 of 725 session(s)                                        │
+│ Artifacts          ││ AGENT   SESSION ID              MODIFIED                     │
+│ Doctor             ││❯ claude  c36bd8f6-0cb2-4253…   2026-09-13 18:17   1456 msg   │
+│ Skill              ││  claude  1367d688-7dcd-43d8…   2026-09-13 18:10              │
+│ Update             ││                                                              │
+│ Settings           ││                                                              │
+│ Exit               ││                                                              │
+╰────────────────────╯╰──────────────────────────────────────────────────────────────╯
+ NAV  ←→ pane  ↑↓ move  ⏎ select  / filter  esc back  ? help   ACT  v look  a actions
 ```
 
-**Every shortcut is also a button.** The bar is on row 3 of every screen, and clicking a button does
-exactly what its key does. The agent chips filter on click. On a narrow terminal the captions drop
-before the buttons do: at 40 columns it reads `[/] [0] [↵] [a] [q]`, all still clickable.
+### Top bar — the agents detected on this machine
 
-**Everything is clickable:** rows, chips, bar buttons, menu items. The wheel scrolls the session
-list, the quick look, and the action menus.
-
-### Screens and keys
-
-| screen | keys | buttons on the bar |
+| cell | clicked | keyed |
 | --- | --- | --- |
-| **browse** | `↑` `↓` move · `c` `x` `p` filter agent · `0` all agents · `/` search · `enter` or `space` quick look · `a` `e` `h` actions · `q` quit | `/ search`, `0 all agents`, `↵ quick look`, `a actions`, `q quit` |
-| **search** (inside browse) | type · `backspace` · `enter` `esc` finish | same bar |
-| **preview** (quick look) | `↑` `↓` scroll · `a` `h` `enter` actions · `esc` `q` back | `a actions`, `esc back to the list` |
-| **actions** | `↑` `↓` choose · `enter` run · `esc` back | `↵ run this`, `esc back to the list` |
-| **target** (which agent) | `↑` `↓` choose · `enter` fork · `esc` back | `↵ continue in this agent`, `esc back` |
-| **running** | — | — |
-| **done** | `enter` `esc` `q` back to the list | `↵ back to the list` |
+| `all 725` | clears the agent filter | `0` |
+| `claude 357` | filters to Claude Code | `c` |
+| `codex 194` | filters to Codex | `x` |
+| `pi 174` | filters to Pi | `p` |
+| right-hand `out: …` | — | set with `--out` |
 
-`ctrl-c` quits from anywhere.
+The counts are real: they come from scanning the stores, not from a cache.
 
-There are no vim bindings — `j`/`k` do nothing.
+### Sidebar — one entry per thing the tool can do
 
-### The action menu
+Each entry is a page, and each exists on the command line too. The sidebar is an index of the
+tool, not a decoration.
 
-After picking a session, `a` (or the `[a actions]` button) offers:
+| entry | page | equivalent |
+| --- | --- | --- |
+| **Sessions** | the session list, filter, quick look, actions | `ccompactor list` / `find` |
+| **Artifacts** | what is in `--out`, with sizes | `ls .ccompactor` |
+| **Doctor** | stores, backends, every install on `PATH` | `ccompactor doctor` |
+| **Skill** | install / uninstall / where it goes | `ccompactor skill …` |
+| **Update** | check, then update | `ccompactor update` |
+| **Settings** | the output directory and session scope | `--out`, `--project` |
+| **Exit** | leaves | `q` |
+
+### Bottom bar — navigation on the left, actions on the right
+
+The split is deliberate: one flat list of shortcuts does not tell a reader which keys move them
+and which will write a file.
+
+| NAV | |
+| --- | --- |
+| `←→ pane` | move focus between the sidebar and the content (also `tab`) |
+| `↑↓ move` | move within the focused pane |
+| `⏎ select` | open the highlighted thing |
+| `/ filter` | search sessions by id, project, or what the human asked |
+| `esc back` | close a dialog, leave search, or go back to the sidebar |
+| `? help` | the key list, as a dialog |
+
+| ACT | on which page |
+| --- | --- |
+| `v look` | Sessions — the quick look |
+| `a actions` | Sessions — what to do with the selected session |
+| `V verify`, `r reload` | Artifacts |
+| `i install`, `u uninstall`, `p path` | Skill |
+| `c check`, `U update` | Update |
+
+On a narrow terminal the captions drop before the buttons do: at 80 columns the bar reads
+`ACT  v  a`, and both keys still work. `? help` and `2` other navigation keys give way first.
+
+### Dialogs
+
+Decisions happen in centred pop-ups over the frame, so the list you were reading stays where it
+was. `esc` closes any of them.
+
+| dialog | opened by |
+| --- | --- |
+| **quick look** | `v`, or clicking a row — recent turns, message and token counts |
+| **actions** | `a`, or the `[a actions]` button — eight things you can do with the session |
+| **target** | choosing one of the two hand-off actions — which agent to continue in |
+| **running** | any action — the pipeline, stage by stage |
+| **result** | when an action finishes — what was written, and where |
+| **report** | Doctor, Skill, Update — the same output the command would print |
+| **keys** | `?` |
+
+Dialog items are clickable: clicking a row in the actions dialog runs it, which is what clicking a
+menu item does everywhere else.
+
+### The action dialog
 
 | action | what it does |
 | --- | --- |
-| Hand off — print the command for the next agent | fork into a new session and show the command; you run it |
-| Hand off — and start the next agent here | the same command, run for you in this terminal |
 | Extract handoff — deterministic, no model | brief + ledgers + retrieval index → `<out>/handoff.md` |
-| Extract handoff — with a model-written summary | same, with an L1 summary; needs a key |
-| Readable transcript — what was said, in order | user and agent turns only → `<out>/transcript.md` |
-| Readable transcript — including tool calls | every tool call and its output → `<out>/transcript.md` |
-| Verify the artifact already in this directory | re-check quotes and file paths against the transcript |
+| Extract handoff — with a model-written summary | adds L1 from a digest of the transcript |
+| Narrate — write L1 from the artifact | reads `<out>/handoff.md`, not the transcript; ~5k tokens |
+| Readable transcript — what was said, in order | user and agent turns → `<out>/transcript.md` |
+| Readable transcript — including tool calls | every tool call and its output |
+| Hand off — print the command for the next agent | fork into a new session, show the command |
+| Hand off — and start the next agent here | the same command, run in this terminal |
+| Verify the artifact already in this directory | re-check quotes and file paths |
 
-Every one of these is also a `ccompactor` command; the TUI is a front end for the CLI, not a
-separate feature set.
+### Mouse
 
----
+Everything positional is clickable and the wheel scrolls. The frame's geometry lives in
+`src/tui/frame.ts` and is unit-tested, because the one bug this area had was a click landing on
+the row below the one it was drawn on.
+
+### Keys that are not on the bar
+
+| key | |
+| --- | --- |
+| `q` | quit |
+| `ctrl-c` | quit |
+| `tab` | move focus, same as `←→` |
+
+There are no vim bindings — `j`/`k` do nothing.
 
 ## 10. Worked end-to-end flows
 
@@ -814,6 +879,11 @@ a first run ends with a new directory holding five files and no instruction.
 
 `no session matches '13'` — with no mention of the project filter, of `--any-project`, or of the
 sessions that would have matched without it.
+
+### The TUI still learns nothing between runs
+
+The sidebar, filter, search and selection all reset on launch. There is no "resume where I was",
+and no way to open a page directly — `ccompactor --tui --page artifacts` does not exist.
 
 ### Two global installs look like one
 
