@@ -180,6 +180,18 @@ jobs:
           else
             echo "value=dry-run-$(echo "${{ github.sha }}" | cut -c1-8)" >> "$GITHUB_OUTPUT"
           fi
+      # `ccompactor update` downloads one of these archives and puts the binary
+      # in place of itself, so it has to be able to check what it downloaded
+      # against the release rather than trust the connection.
+      - name: checksums
+        run: |
+          set -e
+          cd artifacts
+          # Only the archives, not the .deb files: the checksum file is what the
+          # updater parses, and an entry without a self-update path is noise.
+          find . -maxdepth 1 \( -name '*.tar.gz' -o -name '*.zip' \) -printf '%f\n' \
+            | sort | xargs sha256sum > SHA256SUMS
+          cat SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**

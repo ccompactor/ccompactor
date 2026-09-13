@@ -33,6 +33,7 @@ ccompactor handoff claude:last --to codex --run
 | `ccompactor skill install` | the Agent Skill, so agents know to use it |
 | `ccompactor --tui` | an interactive browser — filter, search, extract, handoff |
 | `ccompactor bench <refs...>` | measure whether a handoff hands anything off (research) |
+| `ccompactor update` | move this install to the newest release |
 
 Session references are `claude:7c1e8f82`, `codex:last`, `pi:<id>`, or a path to a transcript.
 
@@ -90,6 +91,18 @@ only 3 of 21 questions were shared. On the 22 questions the two runs genuinely s
 14/22 and ccompactor 3/22 — ccompactor is behind, the gap is real, and we do not yet know why, since
 the retrieval prompts and expansion loop are line-for-line ports. We would rather say that than quote
 a number that flattered us.
+
+## Staying up to date
+
+```sh
+ccompactor update            # newest release
+ccompactor update --check     # is there one?
+```
+
+`update` works out how this copy was installed and does the right thing: a global npm install is
+updated with npm, a standalone binary is downloaded and swapped in place, and a source checkout is
+refused with the `git pull` command instead — that one is someone's working tree. Standalone
+downloads are checked against the release's `SHA256SUMS`.
 
 ## Install without Node
 

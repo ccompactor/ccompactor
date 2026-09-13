@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.8] — 2026-09-14
+
+### Added
+
+- **`ccompactor update`** — move this install to the newest release, working out first what kind of
+  install it is. A global npm install is updated with npm; a standalone binary is downloaded,
+  checksum-checked and swapped in place of the running executable; a project-local copy is left alone
+  with the command that would update it; and a source checkout is refused outright, because that is
+  someone's working tree and `npm run link` makes it look like an installed one. `--check` only
+  reports, `--dry-run` says what it would do.
+- **`SHA256SUMS` on each release.** `update` checks the archive it is about to run in place of itself
+  against it. Releases up to 0.1.7 published no sums; those still update, with the gap stated rather
+  than hidden. A sum that is present and wrong always stops the update.
+
 ## [0.1.7] — 2026-09-14
 
 ### Fixed

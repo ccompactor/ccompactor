@@ -39,6 +39,10 @@ Standalone binaries (no Node needed) for macOS arm64/x64, Linux x64/arm64 with a
 Windows x64/arm64 are attached to each
 [release](https://github.com/ccompactor/ccompactor/releases).
 
+Either way, `ccompactor update` moves you to the newest release: it re-runs the npm install for a
+global npm install, and downloads and replaces the binary in place for a standalone one. It reports
+what it would do without `--check` changing anything, and it refuses to touch a source checkout.
+
 Or without linking:
 
 ```sh
@@ -80,6 +84,7 @@ ccompactor --tui
 | `expand <ref> a..b` | the events behind an `[evt a–b]` pointer, in exact pages |
 | `verify <dir>` | re-check an artifact: schema, and whether its quotes are in the transcript |
 | `handoff <ref> --to <agent>` | launch a target agent with the context preloaded |
+| `update [--check]` | move this install to the newest release |
 | `--tui` | interactive browser |
 
 Session refs: `claude:7c1e8f82`, `claude:last`, `codex:6f1a2b3c`, or a path to a transcript.

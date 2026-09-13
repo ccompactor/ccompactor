@@ -248,6 +248,38 @@ program
   })
 
 program
+  .command('update')
+  .description('Update ccompactor to the newest release.')
+  .option('--check', 'report whether a newer release exists, and stop')
+  .option('--dry-run', 'say what would happen without changing anything')
+  .action(async (opts: { check?: boolean; dryRun?: boolean }) => {
+    const { update } = await import('./update/index.js')
+    const result = await update({ check: opts.check, dryRun: opts.dryRun })
+    if (program.opts()['json']) {
+      emit(
+        {
+          schema: 'ccompactor.update/v1',
+          current: result.current,
+          latest: result.latest,
+          kind: result.kind,
+          location: result.location,
+          changed: result.changed,
+          message: result.message,
+        },
+        '',
+      )
+      return
+    }
+    emit(null, result.message)
+    // `--check` is asked as a question, so "an update is available" is not a
+    // failure. Everywhere else a declined update exits non-zero, which is what
+    // a script wrapping `ccompactor update` needs to notice.
+    if (!result.changed && !opts.check && !opts.dryRun && result.current !== result.latest) {
+      process.exitCode = 1
+    }
+  })
+
+program
   .command('skill <action>')
   .description('Install, uninstall, or locate the Agent Skill.')
   .action(async (action: string) => {

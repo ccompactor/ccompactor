@@ -254,6 +254,7 @@ ccompactor expand <ref> <start..end> [--context N]
 ccompactor verify <dir> [--strict]
 ccompactor handoff <ref> --to <agent> [--run] [--out DIR] [--llm MODE]
 ccompactor skill install|uninstall|path
+ccompactor update [--check] [--dry-run]
 ccompactor --tui
 ```
 
