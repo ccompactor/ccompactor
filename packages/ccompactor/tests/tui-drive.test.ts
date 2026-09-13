@@ -209,7 +209,10 @@ test('the bottom bar filter button starts a search that filters the list', opts,
   try {
     await tui.send('/')
     await tui.waitFor(/search:/)
-    await tui.send('fixture-2')
+    // One character at a time. A whole string in one write relies on Ink
+    // receiving it as a single `input`, and on macOS it occasionally did not:
+    // the query arrived short and the filter matched more than one row.
+    await tui.press(...'fixture-2'.split(''))
     await tui.waitFor(/search: fixture-2/)
     await tui.send('\r')
     await tui.waitFor(/1 of 3 session\(s\)/)
