@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.4] — 2026-09-14
+
+### Fixed
+
+- **`list` and `find` were misaligned for most of what they listed.** Columns were padded to a fixed
+  38 characters, but a codex session id is sixty, so the id ran straight into the size column and the
+  first command a developer runs produced soup. Widths now come from the data; the id column takes
+  the space left over and, when the terminal is too narrow, is cut from the left — the timestamp
+  prefix is already in the modified column, so the tail is the half that identifies the session.
+  Piping reads untruncated.
+
 ## [0.1.3] — 2026-09-14
 
 ### Fixed

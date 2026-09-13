@@ -339,22 +339,45 @@ program
     }
   })
 
-/** The table `list` and `find` share. */
+/**
+ * The table `list` and `find` share.
+ *
+ * Column widths come from the data rather than from a constant, because a codex
+ * session id is sixty characters and a Claude one is thirty-six: padding to a
+ * fixed 38 let the long ids run straight into the size column, so the table a
+ * developer reads first was misaligned for most of what it listed.
+ *
+ * An id that still does not fit is cut from the *left*. Codex and Pi ids are
+ * `<timestamp>_<uuid>` and the timestamp is already in the modified column, so
+ * the tail is the half that identifies the session. The untruncated ids are one
+ * `--json` away.
+ */
 function renderTable(refs: SessionRef[], total: number): string {
   if (refs.length === 0) return 'no sessions found. Run `ccompactor doctor`.'
-  const lines = ['AGENT       ID                                    SIZE      MODIFIED']
-  for (const ref of refs) {
-    lines.push(
-      `${ref.agent.padEnd(12)}${ref.id.padEnd(38)}${sizeLabel(ref.bytes).padEnd(10)}${new Date(
-        ref.mtime,
-      )
-        .toISOString()
-        .slice(0, 16)
-        .replace('T', ' ')}`,
-    )
+  const rows = refs.map((ref) => [
+    ref.agent,
+    ref.id,
+    sizeLabel(ref.bytes),
+    new Date(ref.mtime).toISOString().slice(0, 16).replace('T', ' '),
+  ])
+  const head = ['AGENT', 'ID', 'SIZE', 'MODIFIED']
+  const width = (i: number) =>
+    Math.max(head[i]?.length ?? 0, ...rows.map((r) => r[i]?.length ?? 0))
+  // Agent, size and modified are short and fixed by their own content; the id
+  // takes whatever is left.
+  const columns = process.stdout.columns ?? Number(process.env.COLUMNS) ?? 0
+  const fixed = width(0) + width(2) + width(3) + 3 * 3
+  const idWidth = columns > 0 ? Math.max(24, columns - fixed) : width(1)
+  // The header has to agree with the cells, so the id column is measured once.
+  const columnWidth = (i: number) => (i === 1 ? Math.min(width(1), idWidth) : width(i))
+  const cell = (text: string, i: number) => {
+    if (i !== 1 || text.length <= idWidth) return text.padEnd(columnWidth(i))
+    return `\u2026${text.slice(-(idWidth - 1))}`.padEnd(columnWidth(i))
   }
-  if (total > refs.length) lines.push(`\n${total - refs.length} more; raise --limit to see them`)
-  return lines.join('\n')
+  return [head, ...rows]
+    .map((row) => row.map(cell).join('   ').replace(/\s+$/, ''))
+    .concat(total > refs.length ? [`\n${total - refs.length} more; raise --limit to see them`] : [])
+    .join('\n')
 }
 
 function sizeLabel(bytes: number | undefined): string {
