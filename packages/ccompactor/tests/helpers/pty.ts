@@ -105,10 +105,13 @@ export function fixtureStore(sessions = 3): FixtureStore {
 export class Tui {
   private child: ChildProcessWithoutNullStreams
   private buffer = ''
+  private errors = ''
+  private spawnError: string | undefined
   private exited = false
   private exitCode: number | undefined
   readonly columns: number
   readonly rows: number
+  private readonly argv: string[]
 
   constructor(
     argv: string[],
@@ -120,6 +123,7 @@ export class Tui {
     const args = [BRIDGE, String(columns), String(rows), ...argv]
     this.columns = columns
     this.rows = rows
+    this.argv = [file, ...args]
     this.child = spawn(file, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
@@ -133,7 +137,14 @@ export class Tui {
       this.buffer += chunk.toString('utf8')
     })
     this.child.stderr.on('data', (chunk: Buffer) => {
+      // Kept apart from the program's own output: when the bridge itself fails
+      // to start, this is the only place the reason appears.
+      this.errors += chunk.toString('utf8')
       this.buffer += chunk.toString('utf8')
+    })
+    this.child.on('error', (error) => {
+      this.spawnError = error.message
+      this.exited = true
     })
     this.child.on('exit', (code) => {
       this.exited = true
@@ -197,11 +208,13 @@ export class Tui {
       if (this.exited) {
         throw new Error(
           `the TUI exited (code ${this.exitCode}) before ${pattern} appeared.\n` +
-            `Last output:\n${this.tail()}`,
+            `${this.diagnosis()}\nLast output:\n${this.tail()}`,
         )
       }
       if (Date.now() > deadline) {
-        throw new Error(`timed out waiting for ${pattern}.\nLast output:\n${this.tail()}`)
+        throw new Error(
+          `timed out waiting for ${pattern}.\n${this.diagnosis()}\nLast output:\n${this.tail()}`,
+        )
       }
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
@@ -214,6 +227,17 @@ export class Tui {
       if (pattern.test(this.text())) throw new Error(`unexpected ${pattern} on screen`)
       await new Promise((resolve) => setTimeout(resolve, 40))
     }
+  }
+
+  /** Everything known about a child that is not talking. */
+  diagnosis(): string {
+    const bits = [
+      `argv: ${this.argv.join(' ')}`,
+      `child pid ${this.child.pid ?? '?'}, running: ${!this.exited}`,
+      `stderr: ${this.errors.trim() || '(none)'}`,
+      this.spawnError ? `spawn error: ${this.spawnError}` : '',
+    ]
+    return bits.filter(Boolean).join('\n')
   }
 
   tail(lines = 24): string {

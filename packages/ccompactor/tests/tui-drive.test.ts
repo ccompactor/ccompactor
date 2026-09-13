@@ -27,6 +27,23 @@ async function start(outDir?: string): Promise<{ tui: Tui; store: ReturnType<typ
   return { tui, store }
 }
 
+test('the pty bridge can run a trivial program', opts, async () => {
+  // The harness itself, before anything that depends on it. Without this the
+  // first symptom of a broken bridge is twenty-three identical timeouts with no
+  // output, which says nothing about the cause.
+  const store = fixtureStore(1)
+  const tui = new Tui([process.execPath, '-e', 'console.log("BRIDGE-OK")'], {
+    env: store.env,
+    cwd: store.cwd,
+  })
+  try {
+    await tui.waitFor(/BRIDGE-OK/, 10000)
+  } finally {
+    await tui.close()
+    store.cleanup()
+  }
+})
+
 // ---- the sidebar: one entry per thing the tool can do ----------------------
 
 // The marker must be text only that page draws. A marker that also appears in
