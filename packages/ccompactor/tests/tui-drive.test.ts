@@ -207,15 +207,20 @@ test('the bottom bar offers help, and it opens', opts, async () => {
 test('the bottom bar filter button starts a search that filters the list', opts, async () => {
   const { tui, store } = await start()
   try {
-    await tui.send('/')
+    await tui.press('/')
     await tui.waitFor(/search:/)
-    // One character at a time. A whole string in one write relies on Ink
-    // receiving it as a single `input`, and on macOS it occasionally did not:
-    // the query arrived short and the filter matched more than one row.
-    await tui.press(...'fixture-2'.split(''))
-    await tui.waitFor(/search: fixture-2/)
-    await tui.send('\r')
-    await tui.waitFor(/1 of 3 session\(s\)/)
+    // One character at a time: a whole string in one write relies on Ink
+    // receiving it as a single input, and on macOS it occasionally did not.
+    await tui.press(...'bravo'.split(''))
+    await tui.waitFor(/search: bravo/)
+    await tui.press('\r')
+    // That the filter narrowed the list, rather than an exact count: search is
+    // fuzzy and reads the whole path, so how many rows survive depends on a
+    // random temp directory. Three is the number that matters — it means the
+    // search did nothing.
+    const text = await tui.waitFor(/(\d+) of 3 session\(s\)/)
+    const shown = Number(/(\d+) of 3/.exec(text)?.[1] ?? '3')
+    assert.ok(shown < 3, `the search narrowed the list, got ${shown} of 3`)
   } finally {
     await tui.close()
     store.cleanup()

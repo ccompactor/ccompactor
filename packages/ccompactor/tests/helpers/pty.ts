@@ -99,12 +99,16 @@ export function fixtureStore(sessions = 3): FixtureStore {
   const dir = join(store, '-fixture-project')
   mkdirSync(dir, { recursive: true })
   const source = readFileSync(join(PACKAGE, 'tests', 'fixtures', 'claude-basic.jsonl'), 'utf8')
-  for (let i = 1; i <= sessions; i += 1) {
-    // Each session gets a distinct id and cwd, so the rows can be told apart and
-    // a filter can be seen to have worked.
+  // Words, not numbers. Search is fuzzy and matches against the whole path,
+  // including a random temp directory, so `fixture-2` could match the row for
+  // `fixture-1` whenever that directory happened to contain a `2` — which made
+  // the filter test pass on one runner and fail on another.
+  const names = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot']
+  for (let i = 0; i < sessions; i += 1) {
+    const name = names[i] ?? `n${i}`
     writeFileSync(
-      join(dir, `fixture-${i}.jsonl`),
-      source.replaceAll('fixture-1', `fixture-${i}`).replaceAll('/repo', project),
+      join(dir, `fixture-${name}.jsonl`),
+      source.replaceAll('fixture-1', `fixture-${name}`).replaceAll('/repo', project),
     )
   }
   return {
