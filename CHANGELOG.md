@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.1.17] — 2026-09-14
+
+### Added
+
+- **23 tests that drive the real TUI through a pty.** Every sidebar page opens, every top-bar tab
+  filters, every bottom-bar button does what its label says, every action in the action dialog is
+  offered and selectable, every dialog opens and closes, and the deterministic extract actually
+  writes the files the dialog names. They run the published entry point against a fixture store, so a
+  passing test is a working button rather than a rendering that looks right.
+
+  Node cannot allocate a pty and `script(1)` on macOS refuses to start unless its own stdin is
+  already a terminal — the one thing a test cannot provide. `tests/helpers/pty-bridge.py` allocates
+  one and sets its window size, so the layout under test is a number the test chose. The suite skips
+  where there is no pty.
+
+### Fixed
+
+- **`esc` stopped closing the quick look, the action list and the target list.** It was routed
+  through the same handler as `enter`, which only dismisses the dialogs that `enter` dismisses.
+- **A dialog did not own the keyboard.** `tab` and the agent shortcuts reached the frame behind it,
+  so `tab` moved focus and the `enter` meant to open a page closed the dialog instead, and `c`/`x`/`p`
+  filtered a list nobody could see.
+- **The Skill and Update pages showed nothing** until a key was pressed. Both now say what they do
+  and list their keys.
+- **The sidebar's focus marker had no space after it**, so a focused row read `❯Sessions` while a
+  focused content row read `❯ claude`.
+- Two layout regressions the new tests caught within the hour: the top bar's pad and the bottom
+  bar's pad each failed to count the joins between blocks, leaving the row a column too wide for Ink
+  to keep on one line.
+
 ## [0.1.16] — 2026-09-14
 
 ### Changed

@@ -712,6 +712,21 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
 
     if (modal?.kind === 'running') return
 
+    // A dialog owns the keyboard while it is open.
+    //
+    // Tab and the agent shortcuts used to reach the frame behind it: `tab` moved
+    // focus behind the dialog, so the Enter that was meant to open a page closed
+    // the dialog instead, and `c`/`x`/`p` filtered a list nobody could see.
+    if (modal) {
+      if (key.upArrow || key.downArrow) return move(key.upArrow ? -1 : 1)
+      // `esc` closes; `enter` confirms. Sending `esc` through `activate()` closed
+      // only the dialogs that happen to be dismissible by Enter, so the quick
+      // look and the action list stopped responding to it.
+      if (key.escape) return setModal(undefined)
+      if (key.return) return activate()
+      return
+    }
+
     if (searching) {
       if (key.return || key.escape) setSearching(false)
       else if (key.backspace || key.delete) setQuery((q) => q.slice(0, -1))
@@ -785,8 +800,10 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
               ? { backgroundColor: THEME.yellow, color: THEME.onYellow, bold: true }
               : { color: THEME.muted })}
           >
-            {cursorHere ? '❯' : ' '}
-            {item.label.padEnd(menuWidth - 1)}
+            {/* The same marker the content rows use, with the same space after
+                it, so a focused row reads the same wherever it is. */}
+            {cursorHere ? '❯ ' : '  '}
+            {item.label.padEnd(menuWidth - 2)}
           </Text>
         )
       })}
@@ -850,6 +867,59 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
             {' '}
             Change these with --out and --project on the command line.{' '}
           </Text>
+        </>
+      )
+    }
+    if (page === 'skill') {
+      return (
+        <>
+          <Text color={THEME.muted} bold>
+            {' '}Teach other agents to use ccompactor{' '}
+          </Text>
+          <Text color={THEME.muted}>
+            {' '}
+            With the skill installed, another agent knows to run ccompactor and read
+          </Text>
+          <Text color={THEME.muted}>
+            {' '}
+            the handoff before touching a codebase.
+          </Text>
+          <Text> </Text>
+          <Text>
+            {'  '}i install{'    '}u uninstall{'    '}p where it goes
+          </Text>
+        </>
+      )
+    }
+    if (page === 'update') {
+      return (
+        <>
+          <Text color={THEME.muted} bold>
+            {' '}Stay on the newest release{' '}
+          </Text>
+          <Text color={THEME.muted}>
+            {' '}
+            Update re-runs the npm install for a global install, downloads and
+          </Text>
+          <Text color={THEME.muted}>
+            {' '}
+            verifies the archive for a standalone binary, and refuses to touch a
+          </Text>
+          <Text color={THEME.muted}> source checkout.</Text>
+          <Text> </Text>
+          <Text>
+            {'  '}c check for a newer release{'    '}U take it
+          </Text>
+        </>
+      )
+    }
+    if (page === 'doctor') {
+      return (
+        <>
+          <Text color={THEME.muted} bold>
+            {' '}Doctor{' '}
+          </Text>
+          <Text color={THEME.muted}> reading the stores, the backends and the installs … </Text>
         </>
       )
     }
