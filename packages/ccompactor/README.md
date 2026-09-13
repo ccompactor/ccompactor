@@ -129,6 +129,17 @@ only 3 of 21 questions were shared. On the 22 questions the two runs genuinely s
 the retrieval prompts and expansion loop are line-for-line ports. We would rather say that than quote
 a number that flattered us.
 
+## Tests
+
+```sh
+npm test
+```
+
+99 tests. The TUI ones drive the real CLI through a pty against a fixture store — every sidebar page,
+every top-bar tab, every bottom-bar button, every action in the action dialog, and a real extract
+asserting the files it names exist afterwards. They skip where there is no pty (`tests/helpers/pty.ts`
+explains why `script(1)` cannot be used and what a small Python bridge does instead).
+
 ## Staying up to date
 
 ```sh

@@ -620,6 +620,19 @@ menu item does everywhere else.
 | Hand off — and start the next agent here | the same command, run in this terminal |
 | Verify the artifact already in this directory | re-check quotes and file paths |
 
+### What is tested
+
+Every button, every action and every section is driven by a test that runs the real CLI through a
+pty against a fixture store, so a passing test is a working button rather than a screenshot that
+looks right. The suite covers: every sidebar page opening, every top-bar tab filtering, every
+bottom-bar button, every entry in the action dialog being offered and selectable, the deterministic
+extract actually writing the files the dialog names, and every dialog opening and closing.
+
+The harness clears `CI` for the child. Ink suppresses its live output when it believes it is in CI —
+it writes only `<Static>` content — and the harness is handing it a real terminal, which is exactly
+what Ink is declining to draw on. That one variable accounted for the whole suite passing locally and
+failing on every runner.
+
 ### Mouse
 
 Everything positional is clickable and the wheel scrolls. The frame's geometry lives in
