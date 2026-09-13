@@ -89,6 +89,27 @@ const LEADING = [
  * ("Do not edit generated files"), so a plain prefix test rejected the rule as
  * a question and silently dropped it. A test caught it; the lookahead is why.
  */
+/**
+ * Sentences that carry a deontic marker without being the human's instruction.
+ *
+ * Measured on real sessions, three false positives dominated:
+ *
+ *   "Do NOT call any tools."          the compaction prompt, echoed into the transcript
+ *   "Please do not write below this line ##"   a quoted email footer
+ *   "Critical: never repo-level npm run build ..."  a truncated quotation
+ *
+ * The first two are text *about* instructions — one is a prompt addressed to a
+ * model, the other is boilerplate in a quoted document — and the third is a
+ * fragment. None is something the human asked a successor to obey, and each one
+ * pushes a real rule off the list.
+ */
+const NOT_AN_INSTRUCTION = [
+  /do not call any tools/i,
+  /respond with text only/i,
+  /^please do not write below this line/i,
+  /^do not (write|edit|modify) below this line/i,
+]
+
 const INTERROGATIVE = [
   /^(why|how|what|when|where|which|who)\s/,
   /^(can|could|would|is|are|did|do|does)\s+(?!not\b|n't\b)/,
@@ -111,6 +132,10 @@ export function extractConstraints(ir: SessionIR): Constraint[] {
       if (lower.endsWith('?') || lower.endsWith(':')) continue
       if (INTERROGATIVE.some((pattern) => pattern.test(lower))) continue
       if (isShouted(text)) continue
+      if (NOT_AN_INSTRUCTION.some((pattern) => pattern.test(text))) continue
+      // A fragment, not a sentence: quoted material cut mid-clause reads as a
+      // rule and is not one.
+      if (text.endsWith('##') || text.endsWith('...')) continue
       const head = directiveHead(lower)
       const markers = DIRECTIVES.filter(([, needles]) =>
         needles.some((needle) => head.startsWith(needle)),

@@ -32,7 +32,7 @@ ccompactor handoff claude:last --to codex --run
 | `ccompactor handoff <ref> --to <agent>` | launch Claude, Codex or Pi with the context preloaded |
 | `ccompactor skill install` | the Agent Skill, so agents know to use it |
 | `ccompactor --tui` | an interactive browser — filter, search, extract, handoff |
-| `ccompactor bench <refs...>` | measure whether a handoff actually hands anything off |
+| `ccompactor bench <refs...>` | measure whether a handoff hands anything off (research) |
 
 Session references are `claude:7c1e8f82`, `codex:last`, `pi:<id>`, or a path to a transcript.
 
@@ -69,23 +69,27 @@ ccompactor extract claude:last --llm api:compat/<model>  # CCOMPACTOR_BASE_URL +
 Secrets are redacted before any model call and again in the rendered artifact. Transcript content is
 treated as data, never as instructions.
 
-## Benchmarked, including where it loses
+## Measuring whether a handoff hands anything off
 
-`ccompactor` ships a handoff benchmark with four arms — `none`, `tail`, `artifact`, and
-`retrieval` (the successor can ask for an event range and be given the real events).
+`ccompactor bench` is a research instrument, not a feature you need. It runs the same task against
+four arms — `none`, `tail`, `artifact`, and `retrieval` (the successor can ask for an event range and
+is handed the real events) — and reports how many questions each arm answers correctly.
 
-Measured head to head against its Rust sister project [sctxx](https://github.com/handyutils/sctxx) on
-the same session, same questions, same backend, three runs each:
+```sh
+ccompactor bench claude:last --llm api:compat/deepseek-chat --questions questions.json
+```
 
-| arm | ccompactor | sctxx |
-| --- | --- | --- |
-| none | 0% | 0% |
-| tail | 0–5% | 9% |
-| artifact | 25% | 23% |
-| **retrieval** | **~38%** | **~73%** |
+The point of shipping it is that a handoff tool which cannot demonstrate it beats handing over the
+last 20 messages is asking to be believed. On our own sessions the arms separate clearly: `none` and
+`tail` score near zero, `artifact` lands around a quarter, and `retrieval` roughly doubles it.
 
-**ccompactor is behind, and the site says so.** The gap is real — the ranges do not overlap across
-repeated runs — and the cause is not yet identified.
+We previously published a table comparing these numbers head to head with
+[sctxx](https://github.com/handyutils/sctxx). **That table has been withdrawn.** The two tools were
+scored on overlapping-but-different question sets, so the per-arm percentages were never comparable;
+only 3 of 21 questions were shared. On the 22 questions the two runs genuinely share, sctxx scores
+14/22 and ccompactor 3/22 — ccompactor is behind, the gap is real, and we do not yet know why, since
+the retrieval prompts and expansion loop are line-for-line ports. We would rather say that than quote
+a number that flattered us.
 
 ## Install without Node
 

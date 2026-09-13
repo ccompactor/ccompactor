@@ -17,6 +17,7 @@ import {
   DEFAULT_BENCH,
   type Arm,
   type BenchOptions,
+  type Question,
   type Trial,
 } from './index.js'
 
@@ -35,6 +36,24 @@ export async function runBench(
     bench?: Partial<BenchOptions>
     outDir?: string
     discover?: DiscoverOptions
+    /**
+     * Use this file as the artifact instead of rendering one.
+     *
+     * The point is comparison. Two tools can be measured on the same session and
+     * the same questions, and the only way to tell whether a difference is the
+     * artifact or the harness is to hold one of them fixed.
+     */
+    artifactOverride?: string
+    /**
+     * Use exactly these questions instead of deriving them.
+     *
+     * Two tools can be pointed at the same session and the same questions, but
+     * each derives its own from its own event model — so they end up asking
+     * different things at different difficulties, and comparing the scores
+     * compares the questions. Reading a shared file is the only way the two
+     * numbers mean the same thing.
+     */
+    questions?: Question[]
   } = {},
   progress: (message: string) => void = () => {},
 ): Promise<BenchRun> {
@@ -48,6 +67,11 @@ export async function runBench(
     )
   }
 
+  if (options.questions) {
+    // A shared question set describes one session; expand against that one.
+    references = references.slice(0, 1)
+  }
+
   const trials: Trial[] = []
   const perSession: unknown[] = []
 
@@ -56,9 +80,11 @@ export async function runBench(
     const ir = await readSession(ref)
     const ledgers = (await import('../ledgers/index.js')).buildLedgers(ir)
     const constraints = extractConstraints(ir)
-    const artifact = render({ ir, ledgers, constraints, engine: 'deterministic' }).markdown
+    const artifact = options.artifactOverride
+      ? await (await import('node:fs/promises')).readFile(options.artifactOverride, 'utf8')
+      : render({ ir, ledgers, constraints, engine: 'deterministic' }).markdown
     const tail = tailOf(ir)
-    const asked = questions(ir, ledgers, bench)
+    const asked = options.questions ?? questions(ir, ledgers, bench)
     if (asked.length === 0) {
       progress(`${reference}: no checkable questions could be derived; skipping`)
       continue
@@ -88,6 +114,7 @@ export async function runBench(
     const report = {
       schema: 'ccompactor.bench/v1',
       backend: selectionLabel(selection),
+      artifact: options.artifactOverride ?? 'ccompactor (rendered)',
       settings: bench,
       arms,
       questions: trials.length / Math.max(1, arms.length),
@@ -135,7 +162,7 @@ async function trial(
     const range = requestedRange(answer)
     if (!range) break
     expansions += 1
-    const events = expand(ir, [range])
+    const events = await expand(ir, [range])
     tokens += Math.ceil(events.length / 4)
     conversation += `\nYou asked for evt ${range[0]}..${range[1]}:\n${events}\n`
   }

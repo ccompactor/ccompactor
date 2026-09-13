@@ -184,7 +184,7 @@ program
     const parsed = ranges.map(parseRange)
     emit(
       null,
-      expand(ir, parsed, {
+      await expand(ir, parsed, {
         context: opts.context,
         page: { index: opts.page, tokens: opts.maxPayload },
       }),
@@ -275,19 +275,51 @@ program
   .option('--deep <n>', '', (v) => Number.parseInt(v, 10), 8)
   .option('--recent <n>', '', (v) => Number.parseInt(v, 10), 4)
   .option('--expansions <n>', 'retrieval rounds allowed', (v) => Number.parseInt(v, 10), 3)
+  .option('--artifact <file>', 'benchmark this artifact file instead of rendering one')
+  .option('--questions <file>', 'ask exactly these questions (from --emit-questions)')
+  .option('--emit-questions <file>', 'write the derived questions and stop')
   .option('--show-answers', 'print what the successor answered for each question')
   .option('--any-project', 'ignore the project filter')
   .action(async (references: string[], opts) => {
     const { runBench, renderTable } = await import('./bench/run.js')
+    const { questions: deriveQuestions } = await import('./bench/index.js')
     const { parseSelection, resolveAuto } = await import('./llm/index.js')
+    const fs = await import('node:fs/promises')
+
+    const benchSettings = {
+      brief: opts.brief,
+      deep: opts.deep,
+      recent: opts.recent,
+      expansions: opts.expansions,
+    }
+
+    // Emitting needs no model, so it is a separate path rather than a mode of a
+    // run that would otherwise spend money to produce a question list.
+    if (opts.emitQuestions) {
+      const { resolveSession, readSession } = await import('./discover/index.js')
+      const { buildLedgers } = await import('./ledgers/index.js')
+      const ref = await resolveSession(references[0]!, { anyProject: opts.anyProject === true })
+      const ir = await readSession(ref, { light: true })
+      const list = deriveQuestions(ir, buildLedgers(ir), benchSettings)
+      await fs.writeFile(opts.emitQuestions, `${JSON.stringify(list, null, 2)}\n`, 'utf8')
+      note(`${list.length} question(s) written to ${opts.emitQuestions}`)
+      process.stdout.write(`${opts.emitQuestions}\n`)
+      return
+    }
+
+    const shared = opts.questions
+      ? (JSON.parse(await fs.readFile(opts.questions, 'utf8')) as never[])
+      : undefined
     const selection = opts.llm === 'auto' ? resolveAuto() : parseSelection(opts.llm)
     const result = await runBench(
       references,
       {
         llm: selection,
         arms: opts.arms.split(',').map((a: string) => a.trim()) as never,
-        bench: { brief: opts.brief, deep: opts.deep, recent: opts.recent, expansions: opts.expansions },
+        bench: benchSettings,
+        ...(shared ? { questions: shared } : {}),
         ...(program.opts()['out'] ? { outDir: program.opts()['out'] } : {}),
+        ...(opts.artifact ? { artifactOverride: opts.artifact } : {}),
         discover: { anyProject: opts.anyProject === true },
       },
       note,

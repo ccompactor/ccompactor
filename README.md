@@ -53,8 +53,15 @@ Publish token is gated behind an OTP prompt that CI cannot answer.
 ## Status
 
 All phases of [`SPEC.md`](SPEC.md) are implemented: CLI, discovery, three adapters, ledgers,
-artifact, verify, expand, handoff, skill, TUI and the benchmark. **No Anthropic-derived code is
-present** — an earlier vendored copy was never imported and has been deleted; see [`NOTICE`](NOTICE).
+artifact, verify, expand, handoff, skill and TUI. **No Anthropic-derived code is present** — an
+earlier vendored copy was never imported and has been deleted; see [`NOTICE`](NOTICE).
+
+`ccompactor bench` also exists, as a research instrument rather than a feature: it measures whether a
+handoff hands anything off, and it is how the recency-tail arm was measured and then deleted. A
+previously published comparison against [sctxx](https://github.com/handyutils/sctxx) has been
+withdrawn — the two runs were scored on question sets sharing 3 of 21 questions, so the per-arm
+percentages were not comparable. On the 22 questions they do share, sctxx answers 14 and ccompactor
+3. See [`packages/ccompactor/README.md`](packages/ccompactor/README.md).
 
 ```sh
 ccompactor list --any-project

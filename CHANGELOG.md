@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.1.3] — 2026-09-14
+
+### Fixed
+
+- **The brief now answers "which part of the codebase".** A touch count per subsystem, sorted by
+  work done, with files that live outside the session's project collapsed into one honest line at
+  the end instead of inventing a directory called `Users`.
+- **Error signatures name the error, not the wrapper.** Every failed command ends in `Exit code 1`,
+  so signing on the first line merged fifteen unrelated failures into one useless entry. Wrapper
+  lines are now skipped in favour of the first line that reads like a failure; a failure with no
+  output at all says so.
+- **The title is a label.** It was the first user message verbatim, which for a session that opens
+  with a page of onboarding is a paragraph. Now ≤ 72 characters cut at a word boundary, with the
+  goal still quoted in full a few lines below.
+- **`Last user request` is a request.** When a session had been compacted, the provider's
+  continuation preamble was the last user turn and was quoted as the human's most recent wish. It
+  is skipped in favour of the last real one.
+- **`expand` resolves pointers the IR dropped.** The IR is a filtered view, so `[evt N]` could
+  point at an event the artifact never carried and resolve to nothing. Expansion now falls back to
+  the raw transcript line, and masks hook and attachment noise as `[<type>] (no content)`.
+- **The transcript output exists.** `extract --format transcript` writes what was actually said,
+  oldest first, with `--full` for every tool call and its output.
+
+### Changed
+
+- **The published benchmark comparison is withdrawn.** The per-arm table against
+  [sctxx](https://github.com/handyutils/sctxx) compared two runs scored on question sets sharing 3
+  of 21 questions, so the percentages were not comparable and the table was not evidence. It is
+  replaced by the shared-question count. `ccompactor bench` is documented as a research instrument
+  rather than listed among the features.
+
 ## [0.1.2] — 2026-09-13
 
 ### Added

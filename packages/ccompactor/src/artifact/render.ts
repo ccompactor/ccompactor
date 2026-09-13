@@ -41,6 +41,17 @@ export interface Rendered {
   tokens: number
 }
 
+/**
+ * The provider's own continuation preamble is a user turn and is not a request.
+ *
+ * Showing it as "last user request" tells a reader that the human's most recent
+ * wish was to be given a summary of their own session.
+ */
+const CONTINUATION = /this session is being continued from a previous conversation/i
+
+/** How files that live outside the session's project are reported. */
+const OUTSIDE = '(outside the project)'
+
 /** The brief's own ceiling. A brief that does not fit a screen is not a brief. */
 const BRIEF_BUDGET = 1_200
 /** Tokens the constraints block may spend before it starts counting itself. */
@@ -72,7 +83,7 @@ export function render(input: RenderInput): Rendered {
   }
 
   const first = ledgers.userTurns[0]
-  const last = ledgers.userTurns.at(-1)
+  const last = ledgers.userTurns.filter((t) => !CONTINUATION.test(t.text)).at(-1)
   if (first) {
     brief += `**Goal** (from the first user message, not model-inferred): ${oneLine(first.text, 300)} [evt ${first.evt}]\n\n`
   }
@@ -84,7 +95,7 @@ export function render(input: RenderInput): Rendered {
   }
 
   if (ledgers.files.length > 0) {
-    const byDir = topDirectories(ledgers, 5)
+    const byDir = topDirectories(ledgers, projectRoot(input), 5)
     brief += `**Where the work was**\n`
     for (const [dir, count] of byDir) brief += `- \`${dir}\` — ${count} touch(es)\n`
     brief += '\n'
@@ -194,10 +205,22 @@ function preamble(): string {
 `
 }
 
+/**
+ * A short label, not the message.
+ *
+ * The first user turn is often a page of onboarding. The goal is quoted in full
+ * a few lines below, so the title only has to say which task this is.
+ */
+const TITLE_MAX = 72
+
 function title(input: RenderInput): string {
   const first = input.ledgers.userTurns[0]
   if (!first) return `${input.ir.ref.agent} session ${input.ir.ref.id}`
-  return oneLine(first.text, 160)
+  const text = oneLine(first.text, 400)
+  if (text.length <= TITLE_MAX) return text
+  const cut = text.slice(0, TITLE_MAX)
+  const space = cut.lastIndexOf(' ')
+  return `${(space > 40 ? cut.slice(0, space) : cut).replace(/[\s,;:.\u2014-]+$/, '')}\u2026`
 }
 
 function renderConstraints(constraints: Constraint[]): string {
@@ -407,16 +430,48 @@ export function stripAnalysis(text: string): string {
   return (summary ? summary[1]! : withoutAnalysis).trim()
 }
 
-/** Tokens per top-level directory, busiest first. */
-function topDirectories(ledgers: Ledgers, limit: number): Array<[string, number]> {
+/** The directory the session was working in, when the provider recorded one. */
+function projectRoot(input: RenderInput): string {
+  const cwd = input.ir.metadata['cwd']
+  return typeof cwd === 'string' ? cwd.replace(/\/$/, '') : ''
+}
+
+/**
+ * Where the work was, relative to the project.
+ *
+ * The first version split the absolute path and took its first two components,
+ * which for `/Users/musichen/_projects/acme/app/src/db.ts` is `Users/musichen` —
+ * the same answer for every file in every project on the machine, and no answer
+ * to the question a reader is asking. Stripping the session's own working
+ * directory first is the whole fix, and it turns the same ledger into
+ * `app/src`, `app/tests`, `docs`.
+ */
+function topDirectories(
+  ledgers: Ledgers,
+  root: string,
+  limit: number,
+): Array<[string, number]> {
   const counts = new Map<string, number>()
   for (const file of ledgers.files) {
-    const parts = file.path.split('/').filter(Boolean)
-    const dir = parts.slice(0, Math.min(2, Math.max(1, parts.length - 1))).join('/')
-    counts.set(dir, (counts.get(dir) ?? 0) + file.edits * 3 + file.writes * 3 + file.reads)
+    const inside = root.length > 0 && file.path.startsWith(`${root}/`)
+    // A file outside the project is not "in Users/musichen": it is outside, and
+    // saying so is more useful than inventing a directory for it.
+    const parts = inside
+      ? file.path.slice(root.length + 1).split('/').filter(Boolean)
+      : []
+    const weight = file.edits * 3 + file.writes * 3 + file.reads
+    if (parts.length <= 1) {
+      counts.set(OUTSIDE, (counts.get(OUTSIDE) ?? 0) + weight)
+      continue
+    }
+    const depth = Math.min(2, parts.length - 1)
+    const dir = parts.slice(0, depth).join('/')
+    counts.set(dir, (counts.get(dir) ?? 0) + weight)
   }
+  // A place the reader cannot navigate to does not lead the list, however many
+  // touches it has.
   return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .sort((a, b) => (a[0] === OUTSIDE ? 1 : b[0] === OUTSIDE ? -1 : b[1] - a[1]))
     .slice(0, limit)
 }
 

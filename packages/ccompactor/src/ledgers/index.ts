@@ -157,12 +157,20 @@ function weight(file: FileRecord): number {
   return file.edits * 3 + file.writes * 3 + file.reads
 }
 
-const GIT_COMMIT = /git\s+commit\s+(?:-[a-zA-Z-]+\s+)*(?:-m\s+)?["']([^"']+)["']/
+/** `git commit -m "..."` and `git commit -F - <<'MSG'`. */
+const GIT_COMMIT_M = /git\s+commit\b[^\n]*?-m\s+["']([^"']+)["']/
+const GIT_COMMIT_HEREDOC = /git\s+commit\b[^\n]*<<[-]?\s*['"]?\w+['"]?\s*\n([^\n]+)/
 
 function collectCommit(command: string, evt: number, out: CommitRecord[]): void {
   if (!command.includes('git commit')) return
-  const message = GIT_COMMIT.exec(command)?.[1]
-  if (message) out.push({ sha: '?', subject: message.slice(0, 200), evt })
+  // First line only. A heredoc's first line is the subject and everything after
+  // it is the body, which is not a subject and used to be pasted in as one.
+  const message =
+    GIT_COMMIT_M.exec(command)?.[1]?.split('\n')[0] ??
+    GIT_COMMIT_HEREDOC.exec(command)?.[1]
+  if (message && message.trim().length > 0) {
+    out.push({ sha: '?', subject: message.trim().slice(0, 200), evt })
+  }
 }
 
 function exitCodeOf(result: IRMessage | undefined): number | undefined {
@@ -181,13 +189,33 @@ function exitCodeOf(result: IRMessage | undefined): number | undefined {
  * removed — paths, line numbers, hex ids, counts — so the same failure repeated
  * forty times is one record with a count rather than forty records.
  */
+/**
+ * Lines that report *that* something failed without saying what.
+ *
+ * Every failed command ends in one of these, so signing on them merges fifteen
+ * unrelated failures into one entry that tells a reader nothing.
+ */
+const WRAPPER = /^(exit code \d+|command failed[^:]*|non-zero exit.*|\[?error\]?)$/i
+
+/** What a real failure line looks like. */
+const FAILURE =
+  /error|fail|exception|traceback|cannot|unable|not found|denied|refused|✗|×|ENOENT|TS\d{4}/i
+
 export function errorSignature(text: string): string {
-  const line =
-    text
-      .split('\n')
-      .map((l) => l.trim())
-      .find((l) => l.length > 0)
-      ?.slice(0, 200) ?? ''
+  // The first line of a failed command's output is usually the wrapper — "Exit
+  // code 1", a shell banner, the command echoed back — and signing on it made
+  // every unrelated failure look like the same error. The first line that
+  // actually reads like a failure is used when there is one.
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+  const useful = lines.filter((l) => !WRAPPER.test(l) && /\p{L}/u.test(l))
+  const line = (
+    useful.find((l) => FAILURE.test(l)) ??
+    useful[0] ??
+    'failed with no error output'
+  ).slice(0, 200)
   return line
     .replace(/0x[0-9a-f]+/gi, '0x…')
     .replace(/\b[0-9a-f]{7,40}\b/gi, '…')
