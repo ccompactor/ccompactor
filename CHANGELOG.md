@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.6] — 2026-09-14
+
+### Fixed
+
+- **The TUI's two handoff actions read as synonyms.** "Extract, then hand off to another agent" and
+  "Extract and launch the agent" both imply the next agent starts; they differ in who starts it. They
+  are now "Hand off — print the command for the next agent" and "Hand off — and start the next agent
+  here", which is the actual choice.
+
 ## [0.1.5] — 2026-09-14
 
 ### Fixed

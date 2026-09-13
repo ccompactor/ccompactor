@@ -195,15 +195,17 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
   const actions: Action[] = useMemo(() => {
     const hasLlm = Boolean(process.env['CCOMPAT_API_KEY'] ?? process.env['CCOMPACTOR_API_KEY'] ?? process.env['ANTHROPIC_API_KEY'] ?? process.env['OPENAI_API_KEY'])
     return [
+      // These two read as synonyms — "hand off" and "launch" both suggest the
+      // agent starts. They differ in who starts it, so the labels say that.
       {
         id: 'handoff',
-        label: 'Extract, then hand off to another agent',
-        detail: 'fork this session into a new one, with the compacted context preloaded',
+        label: 'Hand off — print the command for the next agent',
+        detail: 'fork this session into a new one and show the command; you run it yourself',
       },
       {
         id: 'handoff-run',
-        label: 'Extract and launch the agent',
-        detail: 'same, and start it in this terminal when it is done',
+        label: 'Hand off — and start the next agent here',
+        detail: 'the same command, run for you in this terminal',
       },
       {
         id: 'extract',
