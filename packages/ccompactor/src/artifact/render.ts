@@ -427,7 +427,10 @@ export function episodesOf(ir: SessionIR): Episode[] {
 export function stripAnalysis(text: string): string {
   const withoutAnalysis = text.replace(/<analysis>[\s\S]*?<\/analysis>/gi, '').trim()
   const summary = /<summary>([\s\S]*?)<\/summary>/i.exec(withoutAnalysis)
-  return (summary ? summary[1]! : withoutAnalysis).trim()
+  const body = summary ? summary[1]! : withoutAnalysis
+  // Models do not always close the block they were told to open, and a stray
+  // `<summary>` with no `<details>` renders as nothing in Markdown.
+  return body.replace(/<\/?(?:summary|analysis)>/gi, '').trim()
 }
 
 /** The directory the session was working in, when the provider recorded one. */

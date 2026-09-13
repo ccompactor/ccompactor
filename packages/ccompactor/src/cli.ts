@@ -50,16 +50,15 @@ program
       store: adapter.store(),
       available: adapter.available(),
     }))
+    const backends = await backendRows()
     if (program.opts()['json']) {
-      emit({ schema: 'ccompactor.doctor/v1', adapters: rows }, '')
+      emit({ schema: 'ccompactor.doctor/v1', adapters: rows, backends }, '')
       return
     }
-    const lines = ['ADAPTER     STORE                                    STATUS']
-    for (const row of rows) {
-      lines.push(
-        `${row.agent.padEnd(12)}${row.store.padEnd(41)}${row.available ? 'found' : 'not found'}`,
-      )
-    }
+    const lines = table(
+      ['ADAPTER', 'STORE', 'STATUS'],
+      rows.map((row) => [row.agent, row.store, row.available ? 'found' : 'not found']),
+    ).split('\n')
     const counts = await Promise.all(
       adapters().map(async (a) =>
         a.available() ? (await a.list({ anyProject: true })).length : 0,
@@ -71,6 +70,11 @@ program
         .map((a, i) => `${a.kind}: ${counts[i] ?? 0} session(s)`)
         .join('   '),
     )
+    lines.push('')
+    // `doctor` promises the backends as well as the stores, and the backend is
+    // the half a developer has to choose before `extract` will summarise
+    // anything: `--llm none` always works, everything else needs a key.
+    lines.push(...table(['BACKEND', 'STATUS'], backends.map((b) => [b.backend, b.status])).split('\n'))
     emit(null, lines.join('\n'))
   })
 
@@ -338,6 +342,38 @@ program
       }
     }
   })
+
+/**
+ * Rows of columns as text, each column as wide as its widest cell.
+ *
+ * Fixed widths were the source of two bugs: a sixty-character session id
+ * overflowed its column, and a store path longer than 41 characters did the
+ * same. Measuring the data removes the guess.
+ */
+function table(head: string[], rows: string[][]): string {
+  const width = (i: number) =>
+    Math.max(head[i]?.length ?? 0, ...rows.map((r) => r[i]?.length ?? 0))
+  return [head, ...rows]
+    .map((row) => row.map((cell, i) => cell.padEnd(width(i))).join('   ').replace(/\s+$/, ''))
+    .join('\n')
+}
+
+/** Which `--llm` modes this machine can actually use right now. */
+async function backendRows(): Promise<Array<{ backend: string; status: string }>> {
+  const { resolveAuto, selectionLabel } = await import('./llm/index.js')
+  const auto = resolveAuto()
+  const key = (name: string) => (process.env[name] ? 'set' : 'not set')
+  return [
+    { backend: 'none', status: 'always available (no model, nothing leaves the machine)' },
+    { backend: 'auto', status: `currently resolves to ${selectionLabel(auto)}` },
+    { backend: 'api:anthropic', status: `ANTHROPIC_API_KEY ${key('ANTHROPIC_API_KEY')}` },
+    { backend: 'api:openai', status: `OPENAI_API_KEY ${key('OPENAI_API_KEY')}` },
+    {
+      backend: 'api:compat/<model>',
+      status: `CCOMPACTOR_BASE_URL ${key('CCOMPACTOR_BASE_URL')}, CCOMPACTOR_API_KEY ${key('CCOMPACTOR_API_KEY')}`,
+    },
+  ]
+}
 
 /**
  * The table `list` and `find` share.

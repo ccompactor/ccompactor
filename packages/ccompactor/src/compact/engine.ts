@@ -90,7 +90,11 @@ export async function summariseWithContract(
     user: `${digest}${instructions ? `\n\n# ADDITIONAL INSTRUCTIONS\n\n${instructions}\n` : ''}\n\n# RESPONSE\n\n${SECTION_CONTRACT}`,
     maxTokens: 8_000,
   })
-  return stripAnalysis(response.text)
+  const summary = stripAnalysis(response.text)
+  if (!response.truncated) return summary
+  // A summary that ran out of room still reads as finished. Saying so is the
+  // difference between a successor trusting section seven and knowing to ask.
+  return `${summary}\n\n> **This summary is incomplete.** The model reached its output ceiling part-way through. Later sections are missing rather than empty; the ledgers below are unaffected.`
 }
 
 /** A text-only preamble: a summary turn that calls a tool wastes the call. */

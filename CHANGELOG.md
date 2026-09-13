@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.5] — 2026-09-14
+
+### Fixed
+
+- **`doctor` reported the stores and not the backends**, though its description promised both — and
+  the backend is the half a developer has to choose before `extract` will summarise anything. It now
+  lists which `--llm` modes this machine can use right now, and what `auto` currently resolves to.
+  Store paths are no longer padded to a fixed width either.
+- **A stray `<summary>` tag rendered as nothing.** The model is asked for an `<analysis>` block then a
+  `<summary>` block; when it omitted the closing tag the opening one was passed through to the
+  Markdown, where `<summary>` without `<details>` displays as blank.
+- **A truncated continuation summary looked finished.** Neither backend read the provider's stop
+  reason, so a nine-section summary that stopped after section seven was presented as complete. The
+  stop reason is now checked and the artifact says when later sections are missing rather than empty.
+
 ## [0.1.4] — 2026-09-14
 
 ### Fixed

@@ -26,6 +26,12 @@ export interface LlmResponse {
   text: string
   inputTokens?: number
   outputTokens?: number
+  /**
+   * The provider stopped because it hit the token ceiling, not because it was
+   * finished. The text looks complete — a nine-section summary that ends after
+   * section seven still ends in a full stop — so the caller has to be told.
+   */
+  truncated?: boolean
 }
 
 export interface Backend {
@@ -114,6 +120,7 @@ class HttpBackend implements Backend {
     }
     const body = (await response.json()) as {
       content?: Array<{ type: string; text?: string }>
+      stop_reason?: string
       usage?: { input_tokens?: number; output_tokens?: number }
     }
     const text = (body.content ?? [])
@@ -122,6 +129,7 @@ class HttpBackend implements Backend {
       .join('')
     return {
       text,
+      ...(body.stop_reason === 'max_tokens' ? { truncated: true } : {}),
       ...(body.usage?.input_tokens !== undefined ? { inputTokens: body.usage.input_tokens } : {}),
       ...(body.usage?.output_tokens !== undefined ? { outputTokens: body.usage.output_tokens } : {}),
     }
@@ -157,11 +165,12 @@ class HttpBackend implements Backend {
       throw new Error(`${selection.kind} ${response.status}: ${(await response.text()).slice(0, 400)}`)
     }
     const body = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>
+      choices?: Array<{ message?: { content?: string }; finish_reason?: string }>
       usage?: { prompt_tokens?: number; completion_tokens?: number }
     }
     return {
       text: body.choices?.[0]?.message?.content ?? '',
+      ...(body.choices?.[0]?.finish_reason === 'length' ? { truncated: true } : {}),
       ...(body.usage?.prompt_tokens !== undefined ? { inputTokens: body.usage.prompt_tokens } : {}),
       ...(body.usage?.completion_tokens !== undefined
         ? { outputTokens: body.usage.completion_tokens }
