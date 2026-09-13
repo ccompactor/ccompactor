@@ -29,7 +29,7 @@
     "build": "node scripts/gen-version.mjs && tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "dev": "npm run build --silent && node dist/cli.js",
-    "test": "tsc -p tsconfig.test.json && cd dist-test && node --test",
+    "test": "tsc -p tsconfig.test.json && cd dist-test && node --test --test-timeout=45000",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepack": "node scripts/guard-vendor.mjs",
     "prepublishOnly": "node scripts/guard-vendor.mjs && npm run build"
