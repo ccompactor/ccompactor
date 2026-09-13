@@ -66,3 +66,61 @@ test('a copy that will not answer is listed rather than dropped', () => {
   const lines = describeConflicts([at('/a/ccompactor', '0.1.12'), at('/b/ccompactor', '', true)], '')
   assert.match(lines.join('\n'), /\/b\/ccompactor — did not answer/)
 })
+
+test('a global-install shim resolves to the entry point it runs', async () => {
+  // npm and pnpm do not symlink. They write a shell script that execs node with
+  // the real entry point, and record that path in a `cmd-shim-target=` comment.
+  // Resolving the shim to itself meant the running copy matched nothing on PATH,
+  // so the "this one" marker never appeared for the commonest install there is.
+  const { mkdtempSync, writeFileSync, mkdirSync, rmSync, chmodSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const path = await import('node:path')
+  const { installations } = await import('../src/install.js')
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'ccompactor-shim-'))
+  const original = process.env['PATH']
+  try {
+    const entry = path.join(dir, 'cli.js')
+    writeFileSync(entry, '#!/usr/bin/env node\nconsole.log("9.9.9")\n')
+    const shim = path.join(dir, 'ccompactor')
+    writeFileSync(
+      shim,
+      `#!/bin/sh\n# cmd-shim-target=${entry}\nexec node "${entry}" "$@"\n`,
+    )
+    chmodSync(shim, 0o755)
+
+    process.env['PATH'] = dir
+    const found = installations()
+    const ours = found.find((e) => e.path === shim)
+    assert.ok(ours, 'the shim is found on PATH')
+    // Compared through realpath because macOS resolves /var to /private/var, so
+    // the shim's recorded path and the resolved one differ by a prefix.
+    const { realpathSync } = await import('node:fs')
+    assert.equal(
+      ours!.realPath,
+      realpathSync(entry),
+      'and resolves to what it execs, not to itself',
+    )
+  } finally {
+    if (original === undefined) delete process.env['PATH']
+    else process.env['PATH'] = original
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a directory with no ccompactor contributes nothing', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const path = await import('node:path')
+  const { installations } = await import('../src/install.js')
+  const dir = mkdtempSync(path.join(tmpdir(), 'ccompactor-empty-'))
+  const original = process.env['PATH']
+  try {
+    process.env['PATH'] = dir
+    assert.deepEqual(installations(), [])
+  } finally {
+    if (original === undefined) delete process.env['PATH']
+    else process.env['PATH'] = original
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

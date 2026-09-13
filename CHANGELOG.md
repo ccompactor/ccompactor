@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.15] — 2026-09-14
+
+### Fixed
+
+- **`doctor` never marked the running copy for an npm or pnpm install.** Those do not symlink; they
+  write a shell script that `exec`s node with the real entry point. Resolving the shim with
+  `realpath` returned the shim itself, so the running copy matched nothing on `PATH` and every row
+  looked equally shadowed. The shim's own `cmd-shim-target=` line is now followed, which is what
+  makes the list answer the question it was added to answer.
+
 ## [0.1.14] — 2026-09-14
 
 ### Added

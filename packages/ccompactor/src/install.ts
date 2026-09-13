@@ -40,9 +40,26 @@ function isExecutable(file: string): boolean {
   }
 }
 
+/**
+ * What a path actually leads to.
+ *
+ * `realpath` is not enough: an npm or pnpm global install is not a symlink but a
+ * generated *shell script* that `exec`s node with the real entry point, and it
+ * records that entry point in a `cmd-shim-target=` comment. Resolving the shim
+ * to itself meant the running copy never matched any entry on PATH, so the
+ * "this one" marker never appeared for the most common install method there is.
+ */
 function resolveReal(file: string): string {
   try {
-    return fs.realpathSync(file)
+    const resolved = fs.realpathSync(file)
+    const stat = fs.statSync(resolved)
+    // A shim is a small text file; a packaged entry point is not read at all.
+    if (stat.isFile() && stat.size < 8 * 1024) {
+      const text = fs.readFileSync(resolved, 'utf8')
+      const target = /^#\s*cmd-shim-target=(.+)$/m.exec(text)?.[1]?.trim()
+      if (target) return resolveReal(target)
+    }
+    return resolved
   } catch {
     return file
   }
