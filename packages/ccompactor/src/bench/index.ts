@@ -223,9 +223,18 @@ export function answeredBy(question: Question, answer: string): boolean {
 }
 
 /** A range a successor asked for, parsed out of its reply. */
+/**
+ * The range a successor asked for, parsed out of its reply.
+ *
+ * Deliberately not anchored at the end. A model that writes
+ * `EXPAND 4122..4381 — the part about the retry loop` has asked for those
+ * events and said why; rejecting the line because of the reason was costing
+ * real expansions, and the arm's own counter showed it firing less than a third
+ * as often as the same prompt on the reference implementation.
+ */
 export function requestedRange(reply: string): [number, number] | undefined {
   for (const line of reply.split('\n')) {
-    const match = /^\s*EXPAND\s+(\d+)\s*\.\.\s*=?\s*(\d+)\s*$/.exec(line)
+    const match = /^\s*EXPAND\s+(\d+)\s*\.\.\s*=?\s*(\d+)/.exec(line)
     if (match) return [Number.parseInt(match[1]!, 10), Number.parseInt(match[2]!, 10)]
   }
   return undefined

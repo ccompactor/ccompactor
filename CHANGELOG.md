@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Every commit in the ledger had `sha: "?"`.** The commit was read from the command line, but most
+  commits are written as `git commit -m "$(cat <<'EOF'`, whose first line carries no message — so 97 of
+  245 subjects were the literal string `$(cat <<` and not one commit could be identified. The SHA and
+  subject are what `git commit` *prints*, and that is where they are now read from, deduplicated by
+  SHA. On the reference session this took the ledger from 245 unidentifiable commits to 232 with 204
+  real SHAs, and it now finds a superset of what the reference implementation finds.
+- **`verify` ran out of memory on a large session.** It read the whole transcript and normalised it
+  into a second string, then a third — on a 292 MB transcript that is a heap OOM rather than an
+  answer. Quotes are now matched while streaming the file in pages, bounded by a fixed window, and
+  the command reports how many ledger paths it actually stats instead of implying all of them.
+- **The artifact recorded its tool version as `0.1.2`**, the same stale constant that `--version` had.
+- **The retrieval benchmark barely asked for more transcript.** Its prompt stated the mechanism but
+  not the condition — a model told "answer from the context, do not guess" has no reason to prefer
+  asking over saying NOT FOUND — and the range parser rejected any line with a word after the range.
+  Both are fixed; see `playground_ccompactor/METRICS.md` for the measurement.
+
 ## [0.1.9] — 2026-09-14
 
 ### Fixed

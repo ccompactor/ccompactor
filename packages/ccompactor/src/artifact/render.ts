@@ -22,6 +22,7 @@ import type { Ledgers } from '../ledgers/index.js'
 import type { Constraint } from '../triage.js'
 import type { SessionIR } from '../ir/types.js'
 import { approxTokens, truncateMiddle } from '../ir/tokens.js'
+import { VERSION } from '../version.js'
 
 export interface RenderInput {
   ir: SessionIR
@@ -162,7 +163,7 @@ export function render(input: RenderInput): Rendered {
     markdown,
     json: {
       schema: 'ccompactor.handoff/v1',
-      version: '0.1.2',
+      version: VERSION,
       session: {
         agent: ir.ref.agent,
         id: ir.ref.id,

@@ -130,7 +130,7 @@ export function buildLedgers(ir: SessionIR): Ledgers {
       if (failed) {
         errors.push(errorRecord(result?.text ?? command, message.eventIndex, command))
       }
-      collectCommit(command, message.eventIndex, commits)
+      collectCommit(command, result?.text ?? '', message.eventIndex, commits)
     }
   }
 
@@ -157,19 +157,46 @@ function weight(file: FileRecord): number {
   return file.edits * 3 + file.writes * 3 + file.reads
 }
 
-/** `git commit -m "..."` and `git commit -F - <<'MSG'`. */
-const GIT_COMMIT_M = /git\s+commit\b[^\n]*?-m\s+["']([^"']+)["']/
-const GIT_COMMIT_HEREDOC = /git\s+commit\b[^\n]*<<[-]?\s*['"]?\w+['"]?\s*\n([^\n]+)/
+/**
+ * What `git commit` prints: `[main beea1ea] subject`, `[main (root-commit)
+ * beea1ea] subject`, or `[detached HEAD beea1ea] subject`.
+ *
+ * This is the only place either half of a commit is stated outright. The
+ * command line cannot supply it: most commits here are written as
+ * `git commit -m "$(cat <<'EOF'`, whose first line carries no message at all,
+ * and a heredoc's subject is on a later line that the command ledger never
+ * keeps. Reading the command produced 245 commits with `sha: "?"` and 97
+ * subjects that were the string `$(cat <<`.
+ */
+const GIT_COMMIT_OUTPUT = /^\[([^\]\s]+)(?:\s+\([^)]*\))?\s+([0-9a-f]{7,40})\]\s*(.*)$/m
 
-function collectCommit(command: string, evt: number, out: CommitRecord[]): void {
+/** `git commit -m "..."`, for a commit whose output was not captured. */
+const GIT_COMMIT_M = /git\s+commit\b[^\n]*?-m\s+["']([^"']+)["']/
+
+function collectCommit(
+  command: string,
+  output: string,
+  evt: number,
+  out: CommitRecord[],
+): void {
   if (!command.includes('git commit')) return
-  // First line only. A heredoc's first line is the subject and everything after
-  // it is the body, which is not a subject and used to be pasted in as one.
-  const message =
-    GIT_COMMIT_M.exec(command)?.[1]?.split('\n')[0] ??
-    GIT_COMMIT_HEREDOC.exec(command)?.[1]
-  if (message && message.trim().length > 0) {
-    out.push({ sha: '?', subject: message.trim().slice(0, 200), evt })
+  const printed = GIT_COMMIT_OUTPUT.exec(output)
+  if (printed) {
+    const subject = printed[3]!.trim()
+    // An amended or rebased commit prints the same sha twice; the ledgers name
+    // each commit once.
+    if (out.some((c) => c.sha === printed[2])) return
+    out.push({ sha: printed[2]!, subject: subject.slice(0, 200), evt })
+    return
+  }
+  // No output to read — a dry run, or a commit that failed. The message on the
+  // command line is still better than nothing, but it has no sha to attach.
+  const message = GIT_COMMIT_M.exec(command)?.[1]?.split('\n')[0]?.trim()
+  // `-m "$(cat <<'EOF'` captures `$(cat <<`. A commit whose message was written
+  // that way has no subject on the command line, and inventing one out of shell
+  // syntax is worse than leaving the subject empty.
+  if (message && message.length > 0 && !/[$`]|<<|\$\(/.test(message)) {
+    out.push({ sha: '?', subject: message.slice(0, 200), evt })
   }
 }
 

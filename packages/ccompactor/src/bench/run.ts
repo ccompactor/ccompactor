@@ -178,12 +178,28 @@ async function trial(
   }
 }
 
+/**
+ * The retrieval arm's prompt has to carry three things the plain one does not:
+ * that the context is a handoff artifact, the *condition* under which to ask
+ * for more, and the fact that asking more than once is allowed.
+ *
+ * The first version stated only the mechanism. A model told "answer from the
+ * context, do not guess — also, you may ask for events" has no reason to
+ * prefer asking over saying NOT FOUND, and it said NOT FOUND: this arm fired 2
+ * expansions across 18 questions where the reference implementation, given the
+ * same questions and the same model, fired 8.
+ */
 function systemFor(arm: Arm): string {
-  const base =
-    'You are taking over a coding task from another agent. Answer the question using only the context you are given. Answer in one short sentence, and say NOT FOUND if the context does not contain the answer. Do not guess.'
-  return arm === 'retrieval'
-    ? `${base} You may ask for the raw events by replying with a single line \`EXPAND <start>..<end>\`; you will be given those events and asked again.`
-    : base
+  if (arm === 'retrieval') {
+    return (
+      'You are taking over a coding task from another agent. You are given a handoff artifact. ' +
+      'Answer the question from it. If the artifact does not contain the answer, you may ask for ' +
+      'the raw events by replying with a single line `EXPAND <start>..<end>`; you will be given ' +
+      'those events and asked again. You may do that a few times. Otherwise answer in one short ' +
+      'sentence, and say NOT FOUND if the context does not contain it.'
+    )
+  }
+  return 'You are taking over a coding task from another agent. Answer the question using only the context you are given. Answer in one short sentence, and say NOT FOUND if the context does not contain the answer. Do not guess.'
 }
 
 /**
