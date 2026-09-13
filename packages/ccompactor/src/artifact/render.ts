@@ -134,12 +134,7 @@ export function render(input: RenderInput): Rendered {
   if (input.summary) {
     out.push(`\n## L1 · Continuation summary\n\n${stripAnalysis(input.summary)}\n`)
   } else {
-    out.push(
-      '\n## L1 · Continuation summary\n\n> No model ran, so there is no continuation summary. ' +
-        'What follows is what deterministic passes can prove — the ledgers. A rule stated ' +
-        'declaratively is absent rather than absent-minded; treat a missing fact as unknown, ' +
-        'not as permission. For the summary: `ccompactor extract <ref> --llm api:<provider>`.\n',
-    )
+    out.push(`\n## L1 · Continuation summary\n\n${sessionArc(input)}\n`)
   }
 
   // L2 — ledgers, the evidence the summary cannot replace.
@@ -405,15 +400,43 @@ interface Episode {
  * range someone would want back — "the part where I asked about the parser" is
  * a request a reader can actually form, and `evt 1200–1450` is how they get it.
  */
+/**
+ * Is this turn the human asking for something, or the harness talking?
+ *
+ * A false negative costs a duller headline; a false positive puts the session's
+ * own plumbing in the reader's face, so the test is deliberately narrow.
+ */
+function isRealRequest(text: string): boolean {
+  if (CONTINUATION.test(text)) return false
+  return !/^\s*<(task-notification|command-name|command-message|local-command)/i.test(text)
+}
+
 export function episodesOf(ir: SessionIR): Episode[] {
-  const boundaries = ir.messages.filter((m) => m.isHumanTurn).map((m) => m.eventIndex)
+  const humanTurns = ir.messages.filter((m) => m.isHumanTurn)
+  // Boundaries are real requests, not every human turn. A slice is delimited by
+  // the turns inside it, so an episode whose first human turn is the provider's
+  // continuation preamble has no other turn to fall back to — the only way to
+  // stop it being the headline is to stop it being a boundary. A preamble means
+  // the session was compacted, not that a new piece of work started.
+  const real = humanTurns.filter((m) => m.text && isRealRequest(m.text))
+  const boundaries = (real.length > 0 ? real : humanTurns).map((m) => m.eventIndex)
   if (boundaries.length === 0) return []
   const episodes: Episode[] = []
   for (const [index, from] of boundaries.entries()) {
     const next = boundaries[index + 1]
     const to = (next ?? ir.messages.at(-1)?.eventIndex ?? from) - 1
     const slice = ir.messages.filter((m) => m.eventIndex >= from && m.eventIndex <= Math.max(to, from))
-    const headline = slice.find((m) => m.isHumanTurn)?.text ?? slice[0]?.text ?? ''
+    // The first human turn of a stretch is not always the human asking for
+    // something: after a provider compaction it is the continuation preamble,
+    // and a background task finishing arrives as a `<task-notification>`. Both
+    // were being quoted as the headline of the episode, so "where the effort
+    // went" listed the two heaviest stretches as prose about the tool's own
+    // bookkeeping.
+    const headline =
+      slice.find((m) => m.isHumanTurn && m.text && isRealRequest(m.text))?.text ??
+      slice.find((m) => m.isHumanTurn)?.text ??
+      slice[0]?.text ??
+      ''
     episodes.push({
       from,
       to: Math.max(to, from),
@@ -432,6 +455,73 @@ export function stripAnalysis(text: string): string {
   // Models do not always close the block they were told to open, and a stray
   // `<summary>` with no `<details>` renders as nothing in Markdown.
   return body.replace(/<\/?(?:summary|analysis)>/gi, '').trim()
+}
+
+/**
+ * The session's shape, without a model.
+ *
+ * This is not a summary and does not pretend to be one: it cannot say what the
+ * work *meant*. What it can say, from the ledgers alone, is where the effort
+ * went and how the work moved — which is the half of a handoff a successor
+ * needs in order to know which part of a 286-event session to read first.
+ *
+ * It replaced a paragraph explaining that nothing was here. An artifact whose
+ * second section is an apology for itself reads as a broken tool, and the
+ * apology was also wrong: the deterministic pass knows a great deal.
+ */
+function sessionArc(input: RenderInput): string {
+  const { ir, ledgers } = input
+  const episodes = episodesOf(ir)
+  const out: string[] = [
+    '> No model ran, so this is not a written summary — it is the session\'s shape, read off the',
+    '> ledgers: where the effort went and how the work moved. For prose, `ccompactor narrate <dir>',
+    '> --llm api:<provider>` writes one from this artifact, which is a fraction of the cost of',
+    '> sending the transcript.',
+    '',
+  ]
+
+  const counts = ledgers.counts
+  out.push(
+    `**The session in one line** — ${counts.userTurns} turn(s) from the human, ` +
+      `${counts.toolCalls} tool call(s), ${ledgers.files.length} file(s) touched, ` +
+      `${ledgers.commits.length} commit(s)` +
+      (ir.compactBoundaries.length > 0
+        ? `, and the provider compacted its own context ${ir.compactBoundaries.length} time(s)`
+        : '') +
+      '.',
+  )
+  out.push('')
+
+  if (episodes.length > 1) {
+    // Ranked by tokens rather than by length: the episodes that cost the most
+    // context are the ones a successor has to understand first, and they are
+    // rarely the last ones.
+    const heaviest = [...episodes].sort((a, b) => b.tokens - a.tokens).slice(0, 5)
+    out.push('**Where the effort went** (heaviest stretches of work)')
+    for (const episode of heaviest) {
+      out.push(
+        `- ${episode.tokens.toLocaleString('en-US')} tok · evt ${episode.from}–${episode.to} · ` +
+          `${oneLine(episode.headline, 150)} [evt ${episode.from}]`,
+      )
+    }
+    out.push('')
+
+    // The arc: fixed samples across the whole session, so a short beginning and
+    // a long end are both represented rather than whichever came last.
+    const arc = sampleAcross(episodes, 10)
+    out.push('**How it moved** (sampled across the session)')
+    for (const episode of arc) {
+      out.push(`- evt ${episode.from} · ${oneLine(episode.headline, 120)}`)
+    }
+    out.push('')
+  }
+
+  out.push(
+    '**What this does not tell you** — why any of it mattered, what was tried and abandoned, or',
+    'which decisions were deliberate. The ledgers below carry the evidence those answers are made',
+    'of; `L3 · Retrieval` says how to reach any of it.',
+  )
+  return out.join('\n')
 }
 
 /** The directory the session was working in, when the provider recorded one. */

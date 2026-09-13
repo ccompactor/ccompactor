@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.13] — 2026-09-14
+
+### Added
+
+- **`ccompactor narrate <dir>`** — the cheap second stage. `extract --llm` summarises a budgeted
+  digest of the *transcript* (~29,550 input tokens on a 286-event session); `narrate` writes the
+  continuation summary from the *artifact* (~5,050), which has already been compressed, verified and
+  given provenance pointers. 12.2 s against 35.9 s, 162 MB against 446 MB. The narrative replaces the
+  L1 block in `handoff.md`, so the file a successor opens is complete; `--print` leaves it alone.
+  Re-narrating costs the same as the first run, because the previous narrative is stripped before the
+  artifact is sent.
+- **L1 is no longer empty without a model.** It now carries the session's shape read off the ledgers:
+  the session in one line, the heaviest stretches of work with their opening request, and an arc
+  sampled across the whole session. It says plainly what it cannot tell you rather than apologising
+  for not existing — an artifact whose second section is an apology for itself reads as a broken
+  tool, and the apology was also wrong.
+
+### Fixed
+
+- **Episode headlines were the harness talking to itself.** A stretch of work after a provider
+  compaction opens with the continuation preamble, and a background task finishing arrives as a
+  `<task-notification>`, so "where the effort went" listed the two heaviest stretches as prose about
+  the tool's own bookkeeping. Episodes are now delimited by real requests, not every human turn. This
+  also cleans up the L3 retrieval index, which lists the same episodes.
+
 ## [0.1.12] — 2026-09-14
 
 ### Added

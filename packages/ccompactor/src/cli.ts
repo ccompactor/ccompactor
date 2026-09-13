@@ -260,6 +260,66 @@ program
   })
 
 program
+  .command('narrate [dir]')
+  .description('Write the continuation narrative from an artifact, using the artifact as context.')
+  .option('--llm <mode>', 'none | auto | api:anthropic | api:openai | api:compat/<model>', 'auto')
+  .option('--focus <text>', 'bias the narrative toward this')
+  .option('--instructions <text>', 'extra instructions for the model')
+  .option('--print', 'print the narrative instead of writing it into the artifact')
+  .action(
+    async (
+      dir: string | undefined,
+      opts: { llm: string; focus?: string; instructions?: string; print?: boolean },
+    ) => {
+      const { parseSelection, resolveAuto, build, selectionLabel } = await import('./llm/index.js')
+      const { narrate, writeNarrative, requireArtifact } = await import('./compact/narrate.js')
+      const target = dir ?? program.opts()['out'] ?? '.ccompactor'
+      // Before the backend check: a missing directory is the more specific
+      // problem, and reporting "needs a model" for it sends the reader off to
+      // set an API key that would not have helped.
+      await requireArtifact(target)
+      const selection = opts.llm === 'auto' ? resolveAuto() : parseSelection(opts.llm)
+      const backend = build(selection)
+      if (!backend) {
+        process.stderr.write(
+          'narrate needs a model. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or ' +
+            'CCOMPACTOR_BASE_URL + CCOMPACTOR_API_KEY and pass --llm. ' +
+            'The deterministic artifact is complete without one.\n',
+        )
+        process.exitCode = 2
+        return
+      }
+      const result = await narrate(target, backend, {
+        focus: opts.focus,
+        instructions: opts.instructions,
+      })
+      if (!opts.print) await writeNarrative(target, result.narrative)
+      if (program.opts()['json']) {
+        emit(
+          {
+            schema: 'ccompactor.narrate/v1',
+            dir: target,
+            written: opts.print !== true,
+            input_tokens: result.artifactTokens,
+            truncated: result.truncated,
+            narrative: result.narrative,
+          },
+          '',
+        )
+        return
+      }
+      process.stderr.write(
+        `read the artifact (${result.artifactTokens} input token(s)) via ${selectionLabel(selection)}` +
+          (opts.print ? '\n' : ` — written into ${target}/handoff.md\n`),
+      )
+      emit(null, result.narrative)
+      if (result.truncated) {
+        process.stderr.write('note: the narrative hit the output ceiling and is incomplete\n')
+      }
+    },
+  )
+
+program
   .command('update')
   .description('Update ccompactor to the newest release.')
   .option('--check', 'report whether a newer release exists, and stop')

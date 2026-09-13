@@ -257,7 +257,35 @@ ccompactor extract claude:1367d688 --llm api:compat/deepseek-chat --dry-run
 `--llm auto` resolves to the first configured backend, else `none`. Output on stdout is the path
 written; progress goes to stderr. Schemas: `ccompactor.handoff/v1`, `ccompactor.transcript/v1`.
 
-### 6.6 `expand` — resolve an `[evt a–b]` pointer
+### 6.6 `narrate` — the cheap second pass
+
+| flag | default | meaning |
+| --- | --- | --- |
+| `--llm <mode>` | `auto` | required; `none` is an error here |
+| `--focus <text>` | — | bias the narrative toward this |
+| `--instructions <text>` | — | extra instructions for the model |
+| `--print` | off | print the narrative instead of writing it into the artifact |
+
+Reads an artifact that already exists and asks a model to write the continuation summary **from the
+artifact**, not from the transcript.
+
+```sh
+ccompactor extract claude:1367d688 --llm none                    # stage 1: free, 2.6 s
+ccompactor narrate .ccompactor --llm api:compat/deepseek-chat    # stage 2: cheap, 12 s
+```
+
+Measured on the same 286-event session:
+
+| | input tokens | wall time | peak memory |
+| --- | --- | --- | --- |
+| `extract --llm api:…` (summarises a digest of the transcript) | ~29,550 | 35.9 s | 446 MB |
+| `narrate --llm api:…` (reads the artifact) | **~5,050** | **12.2 s** | 162 MB |
+
+Nearly 6× cheaper, because the artifact has already been compressed, verified and given provenance
+pointers. Writing the summary into `handoff.md`'s L1 block means one file to read afterwards.
+`--print` leaves the artifact alone. Schema `ccompactor.narrate/v1`.
+
+### 6.7 `expand` — resolve an `[evt a–b]` pointer
 
 | flag | default | meaning |
 | --- | --- | --- |
@@ -293,9 +321,9 @@ $ ccompactor --json expand claude:1367d688 10..11 --any-project
 
 `from`/`to` is the pointer that was asked for; `start`/`end` is what `--context` actually covered.
 The text form renders from the same structure, so the two cannot disagree. Schema
-`ccompactor.expand/v1`.
+`ccompactor.expand/v1`, `ccompactor.narrate/v1`.
 
-### 6.7 `verify` — is this artifact still true
+### 6.8 `verify` — is this artifact still true
 
 | flag | default | meaning |
 | --- | --- | --- |
@@ -313,7 +341,7 @@ says so rather than implying it checked them all. Schema `ccompactor.verify/v1`.
 
 Exit codes: `0` ok, `7` a quote is missing under `--strict`.
 
-### 6.8 `handoff` — extract and start the next agent
+### 6.9 `handoff` — extract and start the next agent
 
 | flag | default | meaning |
 | --- | --- | --- |
@@ -354,7 +382,7 @@ project; build on that work rather than re-deriving it, and treat its \"Hard con
 With `--run` the child's exit status becomes ccompactor's. Schema `ccompactor.handoff/v1` for the
 plan.
 
-### 6.9 `skill` — teach other agents to use this
+### 6.10 `skill` — teach other agents to use this
 
 ```sh
 ccompactor skill install     # copy the skill into every agent's skill directory
@@ -372,7 +400,7 @@ $ ccompactor skill install
 This is the DX lever: with the skill installed, another agent knows to run `ccompactor extract` and
 read `handoff.md` before touching a codebase. Schema `ccompactor.skill/v1`.
 
-### 6.10 `bench` — does a handoff hand anything off
+### 6.11 `bench` — does a handoff hand anything off
 
 A research instrument, not a feature you need.
 
@@ -411,7 +439,7 @@ retrieval                7/18    39%    141237        20177
 Writes `bench.json` and `bench.md`, the latter listing every answer so a number can be checked.
 Schema `ccompactor.bench/v1`.
 
-### 6.11 `update` — stay current
+### 6.12 `update` — stay current
 
 | flag | default |
 | --- | --- |
@@ -585,7 +613,27 @@ ccompactor expand claude:1367d688 75296..75296
 The pointer resolves to the exact event in the exact transcript. This is the loop that makes the
 artifact trustworthy, and it is also its main UX weakness — see §12.
 
-### F6 — Hand a Claude Code session to Codex
+### F6 — Free first pass, then a cheap narrative
+
+The two-stage flow, which is the cheapest way to get real synthesis:
+
+```sh
+# stage 1 — deterministic, offline, 2.6 s, no key, no spend
+ccompactor --out /tmp/h extract claude:1367d688 --llm none
+
+# stage 2 — a model reads the 5k-token artifact, not the 3M-token transcript
+ccompactor narrate /tmp/h --llm api:compat/deepseek-chat
+```
+
+Stage 2 rewrites L1 inside `/tmp/h/handoff.md`, so the file a successor opens is complete. Roughly
+5,050 input tokens and 12 s, against 29,550 tokens and 36 s for `extract --llm` — which summarises a
+digest of the transcript rather than the artifact.
+
+Re-running `narrate` costs the same as the first run: the previous narrative is stripped before the
+artifact is sent, so the input never grows and the model always reads the ledgers rather than its own
+prose.
+
+### F7 — Hand a Claude Code session to Codex
 
 ```sh
 # see the command first
@@ -595,7 +643,7 @@ ccompactor handoff claude:1367d688 --to codex --llm none
 ccompactor handoff claude:1367d688 --to codex --run
 ```
 
-### F7 — A Pi session, and a Codex session, the same way
+### F8 — A Pi session, and a Codex session, the same way
 
 ```sh
 ccompactor list --agent pi --any-project
@@ -605,14 +653,14 @@ ccompactor list --agent codex --any-project
 ccompactor --out /tmp/codex extract codex:2026-09-09T21-37-13-01a087ac --llm none
 ```
 
-### F8 — A transcript to read, rather than an artifact to feed an agent
+### F9 — A transcript to read, rather than an artifact to feed an agent
 
 ```sh
 ccompactor --out /tmp/hist extract claude:1367d688 --format transcript --llm none
 ccompactor --out /tmp/hist-full extract claude:1367d688 --format transcript --full --llm none
 ```
 
-### F9 — Make other agents aware of the tool
+### F10 — Make other agents aware of the tool
 
 ```sh
 ccompactor skill install
@@ -621,7 +669,7 @@ ccompactor skill install
 Then, in any other agent: *"read the handoff from the earlier session before you start."* The skill
 tells it to run `ccompactor list`, then `extract`, then read `.ccompactor/handoff.md` first.
 
-### F10 — Scripting: machine-readable, quiet, fail-fast
+### F11 — Scripting: machine-readable, quiet, fail-fast
 
 ```sh
 set -euo pipefail
@@ -640,7 +688,7 @@ Exit 3 from an ambiguous prefix gives you the candidates as JSON, so a script ca
 ccompactor --json extract claude:13 --llm none || jq -r '.candidates[].id' <<<"$(...)"
 ```
 
-### F11 — An artifact for a session that is not on this machine
+### F12 — An artifact for a session that is not on this machine
 
 ```sh
 ccompactor --out /tmp/imported extract /path/to/copied/abc.jsonl --llm none
@@ -648,14 +696,14 @@ ccompactor --out /tmp/imported extract /path/to/copied/abc.jsonl --llm none
 
 A path reference infers the agent from the path; the file does not have to be in a store.
 
-### F12 — Keep it current
+### F13 — Keep it current
 
 ```sh
 ccompactor update --check || true
 ccompactor update
 ```
 
-### F13 — The interactive route
+### F14 — The interactive route
 
 ```sh
 cd ~/projects/acme/app
@@ -665,7 +713,7 @@ ccompactor --tui
 Then: click `claude 352` to filter, scroll to a row, click it for a quick look, click `[a actions]`,
 click *Extract handoff — deterministic, no model*. No keys required at any point.
 
-### F14 — Benchmark a handoff, fairly
+### F15 — Benchmark a handoff, fairly
 
 ```sh
 # one question set, shared by both tools, so the scores mean the same thing
@@ -735,6 +783,17 @@ The agent filter, search and last selection reset every launch. There is no "res
 `--json` is global and the payload is the whole answer, so there is no way to get a progress stream
 *and* machine-readable output in one invocation without `--quiet` and a separate call.
 
+### Synthesis still needs a model, and that is not going away
+
+Detected by review: *"L1 came back literally empty — the deterministic pass answers 'what happened'
+but not 'what does it mean'."* Two things followed. L1 now carries the session's shape without a
+model — where the effort went, and how the work moved — so a deterministic artifact is never an
+apology for itself. And `narrate` makes the model pass cheap enough to be an obvious second step.
+
+What has not changed, and cannot: a deterministic pass cannot say why a decision was made or which
+approach was abandoned. It can only say that the transcript does not record it. If that is what you
+need, you need stage 2.
+
 ### The artifact does not name the file to read
 
 Nothing in `.ccompactor/` says "start with `handoff.md`". Combined with `--out` taking a directory,
@@ -766,4 +825,5 @@ this directory" command, which is the overwhelmingly common case.
 | **constraint** | a standing instruction found by pattern in the human's turns, quoted verbatim |
 | **arm** | one of `none`, `tail`, `artifact`, `retrieval` in the benchmark |
 | **expansion** | a retrieval round in which the successor asks for a range of raw events |
+| **narrate** | the second-stage pass that writes L1 from an existing artifact rather than from the transcript |
 | **install kind** | how this copy of ccompactor got here — npm global, standalone binary, project-local, source checkout |

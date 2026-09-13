@@ -33,6 +33,7 @@ ccompactor handoff claude:last --to codex --run
 | `ccompactor skill install` | the Agent Skill, so agents know to use it |
 | `ccompactor --tui` | an interactive browser — filter, search, extract, handoff |
 | `ccompactor bench <refs...>` | measure whether a handoff hands anything off (research) |
+| `ccompactor narrate <dir>` | write the continuation summary from an artifact, not the transcript |
 | `ccompactor update` | move this install to the newest release |
 
 Session references are `claude:7c1e8f82`, `codex:last`, `pi:<id>`, or a path to a transcript.
@@ -75,6 +76,21 @@ The agent chips filter. The bar shows every action on the current screen, and th
 on the buttons so you learn them by using them. On a narrow terminal the captions drop and the keys
 stay — `[a]` is still a button. Rows, chips, buttons and menu items are all clickable, and the wheel
 scrolls the list and the quick look.
+
+## Two stages: free first, then cheap
+
+```sh
+ccompactor extract claude:last --llm none                    # deterministic, offline, 2.6 s
+ccompactor narrate .ccompactor --llm api:compat/deepseek-chat  # a model reads the artifact
+```
+
+`extract --llm` asks a model to summarise a digest of the *transcript* — on a 286-event session,
+about 29,550 input tokens. `narrate` asks it to write from the *artifact*, which is about 5,050 and
+has already been compressed, verified and given `[evt N]` pointers. Nearly 6× cheaper, and grounded:
+what it writes back cites lines you can check.
+
+With `--llm none`, L1 is no longer empty. It carries the session's shape read off the ledgers — where
+the effort went, and how the work moved — so a deterministic artifact is useful on its own.
 
 ## The model is optional
 
