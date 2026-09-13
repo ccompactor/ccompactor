@@ -27,12 +27,23 @@ import { listSessions as allSessions } from '../discover/index.js'
 import type { SessionRef } from '../ir/types.js'
 import { THEME, hazard, sizeLabel, width } from './theme.js'
 import { enableMouse, readMouse, type MouseEvent } from './mouse.js'
+import { barCells, inSpan, layoutCells, type BarButton } from './bar.js'
 import { describe, loadDetails, type SessionDetails } from './details.js'
 
 type Screen = 'browse' | 'preview' | 'actions' | 'target' | 'running' | 'done'
 
-/** The terminal row the first session row occupies. Fixed, so a click maps. */
-const LIST_TOP = 4
+/**
+ * Terminal rows, 1-based, that a click is measured against.
+ *
+ * Every screen puts the stripe, the title chips and the action bar on rows 1-3,
+ * so a click means the same thing on all of them and the arithmetic stays in one
+ * place. The row below the bar is a column header on the browse screen and a
+ * question on the menu screens; either way the first thing you can click is 5.
+ */
+const ROW_CHIPS = 2
+const ROW_BAR = 3
+const LIST_TOP = 5
+const MENU_TOP = 5
 
 /**
  * How large a transcript may be before the table stops reading it in the
@@ -56,8 +67,13 @@ interface Props {
 export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
   const { exit } = useApp()
   const { stdout } = useStdout()
-  const columns = stdout?.columns ?? 100
-  const rows = stdout?.rows ?? 30
+  // Not `?? 100`: a pty with no window size reports 0, and 0 is not nullish, so
+  // every layout decision saw a zero-width terminal and collapsed to a single
+  // button. A width too small to draw anything is a width we do not know.
+  const rawColumns = stdout?.columns
+  const columns = rawColumns !== undefined && rawColumns >= 20 ? rawColumns : 100
+  const rawRows = stdout?.rows
+  const rows = rawRows !== undefined && rawRows >= 8 ? rawRows : 30
 
   const [sessions, setSessions] = useState<SessionRef[]>([])
   const [loading, setLoading] = useState('scanning agent stores …')
@@ -316,24 +332,135 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
     setScreen('preview')
   }, [])
 
-  // ---- mouse --------------------------------------------------------------
+  // ---- the top bar --------------------------------------------------------
 
-  useEffect(() => {
-    const stop = enableMouse(process.stdout)
-    const onData = (chunk: Buffer | string): void => {
-      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
-      const { events } = readMouse(text)
-      for (const event of events) handleMouse(event)
+  const runSelectedAction = useCallback((): void => {
+    const action = actions[actionIndex]
+    if (!action) return
+    if (action.id === 'handoff' || action.id === 'handoff-run') {
+      setTargetIndex(0)
+      setScreen('target')
+      return
     }
-    process.stdin.on('data', onData)
-    return () => {
-      process.stdin.off('data', onData)
-      stop()
+    void run(action.id)
+  }, [actions, actionIndex, run])
+
+  const runSelectedTarget = useCallback((): void => {
+    const action = actions[actionIndex]
+    const target = targets[targetIndex]
+    if (action && target) void run(action.id, target)
+  }, [actions, actionIndex, targetIndex, targets, run])
+
+  /**
+   * The buttons for this screen. The key handler calls these same functions, so
+   * a click and a keystroke cannot drift apart — there is one implementation per
+   * action and two ways to reach it.
+   */
+  const barButtons: BarButton[] = ((): BarButton[] => {
+    if (screen === 'browse') {
+      return [
+        {
+          id: 'search',
+          key: '/',
+          label: 'search',
+          run: () => {
+            setSearching(true)
+            setQuery('')
+          },
+        },
+        {
+          id: 'all',
+          key: '0',
+          label: 'all agents',
+          run: () => {
+            setAgentsOff(new Set())
+            setCursor(0)
+          },
+        },
+        { id: 'open', key: '↵', label: 'quick look', run: openPreview },
+        { id: 'actions', key: 'a', label: 'actions', run: openActions },
+        {
+          id: 'quit',
+          key: 'q',
+          label: 'quit',
+          run: () => {
+            exit()
+            onDone(0)
+          },
+        },
+      ]
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, cursor, offset, filtered.length, previewScroll, cache])
+    if (screen === 'preview') {
+      return [
+        { id: 'actions', key: 'a', label: 'actions', run: openActions },
+        { id: 'back', key: 'esc', label: 'back to the list', run: () => setScreen('browse') },
+      ]
+    }
+    if (screen === 'actions') {
+      return [
+        { id: 'run', key: '↵', label: 'run this', run: runSelectedAction },
+        { id: 'back', key: 'esc', label: 'back to the list', run: () => setScreen('browse') },
+      ]
+    }
+    if (screen === 'target') {
+      return [
+        { id: 'fork', key: '↵', label: 'continue in this agent', run: runSelectedTarget },
+        { id: 'back', key: 'esc', label: 'back', run: () => setScreen('actions') },
+      ]
+    }
+    if (screen === 'done') {
+      return [{ id: 'back', key: '↵', label: 'back to the list', run: () => setScreen('browse') }]
+    }
+    return []
+  })()
+
+  const barSpans = barCells(barButtons, columns)
+
+  // The title and the counts are cells too, so the chips that follow are drawn
+  // and hit-tested at the same columns.
+  const chipCells = [
+    { id: 'title', text: ' ccompactor ' },
+    { id: 'count', text: `  ${filtered.length} of ${sessions.length}  ` },
+    { id: 'agent:all', text: ' all ' },
+    ...agents.map(([agent, count]) => ({ id: `agent:${agent}`, text: ` ${agent} ${count} ` })),
+  ]
+  const chipSpans = layoutCells(chipCells, columns)
+
+/**
+ * Act on a click at `x` on terminal row `row`.
+ *
+ * The row has to select which row's spans are searched. Looking through all of
+ * them and taking the first whose columns match sent a click on the `claude`
+ * chip at column 38 to the `[↵ quick look]` button, which happens to cover the
+ * same columns one row down — so filtering by agent opened the preview instead.
+ */
+  function clickCell(row: number, x: number): void {
+    if (row === ROW_BAR) {
+      const bar = barSpans.find((span) => inSpan(span, x))
+      if (bar) barButtons.find((b) => b.id === bar.id)?.run()
+      return
+    }
+    const chip = chipSpans.find((span) => inSpan(span, x))
+    if (!chip || !chip.id.startsWith('agent:')) return
+    const agent = chip.id.slice('agent:'.length)
+    if (agent === 'all') {
+      setAgentsOff(new Set())
+      setCursor(0)
+      return
+    }
+    setAgentFilter(agent)
+  }
 
   function handleMouse(event: MouseEvent): void {
+    if (event.kind === 'click') {
+      // The bar and the chips first: they sit on every screen, and a click that
+      // lands on one must not also be read as a list row.
+      if (event.y === ROW_BAR || event.y === ROW_CHIPS) {
+        clickCell(event.y, event.x)
+        return
+      }
+    }
+
     if (screen === 'browse') {
       if (event.kind === 'wheel-up') {
         setCursor((c) => Math.max(0, c - 3))
@@ -355,12 +482,74 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
     if (screen === 'preview') {
       if (event.kind === 'wheel-up') setPreviewScroll((s) => Math.max(0, s - 3))
       if (event.kind === 'wheel-down') setPreviewScroll((s) => s + 3)
+      return
+    }
+    if (screen === 'actions' || screen === 'target') {
+      const both = screen === 'actions' ? actions.length : targets.length
+      if (event.kind === 'wheel-up') {
+        const step = (i: number) => Math.max(0, i - 1)
+        if (screen === 'actions') setActionIndex(step)
+        else setTargetIndex(step)
+        return
+      }
+      if (event.kind === 'wheel-down') {
+        const step = (i: number) => Math.min(both - 1, i + 1)
+        if (screen === 'actions') setActionIndex(step)
+        else setTargetIndex(step)
+        return
+      }
+      if (event.kind === 'click') {
+        const row = event.y - MENU_TOP
+        if (row < 0 || row >= both) return
+        // A click on a menu item runs it, which is what clicking a menu item
+        // does everywhere else.
+        if (screen === 'actions') {
+          setActionIndex(row)
+          const action = actions[row]
+          if (!action) return
+          if (action.id === 'handoff' || action.id === 'handoff-run') {
+            setTargetIndex(0)
+            setScreen('target')
+            return
+          }
+          void run(action.id)
+        } else {
+          setTargetIndex(row)
+          const target = targets[row]
+          const action = actions[actionIndex]
+          if (action && target) void run(action.id, target)
+        }
+      }
     }
   }
+
+  // The listener is installed once and reads the handler through a ref. Written
+  // the other way it has to list every value the handler closes over, and a
+  // missed dependency silently freezes a click on a stale screen.
+  const mouseRef = useRef(handleMouse)
+  mouseRef.current = handleMouse
+  useEffect(() => {
+    const stop = enableMouse(process.stdout)
+    const onData = (chunk: Buffer | string): void => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      for (const event of readMouse(text).events) mouseRef.current(event)
+    }
+    process.stdin.on('data', onData)
+    return () => {
+      process.stdin.off('data', onData)
+      stop()
+    }
+  }, [])
 
   // ---- keys ---------------------------------------------------------------
 
   useInput((input, key) => {
+    // Mouse sequences arrive on the same stream and Ink's key parser hands the
+    // unrecognised remainder through as typed text, so a click while the search
+    // box is open spelled `[<0;3;3M` into the query. `mouse.ts` consumes them
+    // for its own use; this stops the leftovers reaching a text field.
+    if (/\u001b?\[<\d+;\d+;\d+[Mm]/.test(input)) return
+
     if (key.ctrl && input === 'c') {
       exit()
       onDone(0)
@@ -380,16 +569,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
       if (key.upArrow) setActionIndex((i) => Math.max(0, i - 1))
       if (key.downArrow) setActionIndex((i) => Math.min(actions.length - 1, i + 1))
       if (key.escape) setScreen('browse')
-      if (key.return) {
-        const action = actions[actionIndex]
-        if (!action) return
-        if (action.id === 'handoff' || action.id === 'handoff-run') {
-          setTargetIndex(0)
-          setScreen('target')
-          return
-        }
-        void run(action.id)
-      }
+      if (key.return) runSelectedAction()
       return
     }
 
@@ -397,11 +577,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
       if (key.upArrow) setTargetIndex((i) => Math.max(0, i - 1))
       if (key.downArrow) setTargetIndex((i) => Math.min(targets.length - 1, i + 1))
       if (key.escape) setScreen('actions')
-      if (key.return) {
-        const action = actions[actionIndex]
-        const target = targets[targetIndex]
-        if (action && target) void run(action.id, target)
-      }
+      if (key.return) runSelectedTarget()
       return
     }
 
@@ -478,41 +654,61 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
 
   const chips = (
     <Box>
-      <Text bold backgroundColor={THEME.yellow} color={THEME.onYellow}>
-        {' ccompactor '}
-      </Text>
-      <Text color={THEME.muted}>
-        {'  '}
-        {filtered.length} of {sessions.length}
-        {'  '}
-      </Text>
-      {agents.map(([agent, count]) => {
-        const off = agentsOff.has(agent)
+      {chipSpans.map((span, i) => {
+        const prefix = i > 0 ? ' ' : ''
+        if (span.id === 'title') {
+          return (
+            <Text key={span.id} bold backgroundColor={THEME.yellow} color={THEME.onYellow}>
+              {span.text}
+            </Text>
+          )
+        }
+        if (span.id === 'count') {
+          return (
+            <Text key={span.id} color={THEME.muted}>
+              {span.text}
+            </Text>
+          )
+        }
+        const agent = span.id.slice('agent:'.length)
+        const on = agent === 'all' ? agentsOff.size === 0 : !agentsOff.has(agent)
         return (
           <Text
-            key={agent}
-            {...(off
-              ? { color: THEME.muted }
-              : { backgroundColor: THEME.yellow, color: THEME.onYellow, bold: true })}
+            key={span.id}
+            {...(on
+              ? { backgroundColor: THEME.yellow, color: THEME.onYellow, bold: true }
+              : { color: THEME.muted })}
           >
-            {` ${agent} ${count} `}
+            {prefix + span.text}
           </Text>
         )
       })}
-      <Text color={THEME.muted}>{agentsOff.size > 0 ? '  press 0 for all' : ''}</Text>
     </Box>
   )
 
+  // The action bar. Every shortcut on this screen is also a button, so the
+  // screen can be driven without knowing any of them.
+  const actionBar = (
+    <Box>
+      {barSpans.map((span, i) => (
+        <Text key={span.id} backgroundColor={THEME.yellow} color={THEME.onYellow} bold>
+          {(i > 0 ? ' ' : '') + span.text}
+        </Text>
+      ))}
+      {barSpans.length === 0 && <Text> </Text>}
+    </Box>
+  )
+
+  // The bar carries the actions, so this line only has to explain the things
+  // that are not buttons: moving around.
   const hints =
     screen === 'browse'
-      ? 'c/x/p filter agent · 0 all · / search · ↑↓ wheel · enter or click quick look · a actions · q quit'
+      ? `${sessions.length > visibleRows ? `${cursor + 1}/${filtered.length} · ` : ''}click a row, scroll, or type c/x/p// to narrow`
       : screen === 'preview'
-        ? '↑↓ or wheel scroll · a actions · esc back'
-        : screen === 'actions'
-          ? '↑↓ choose · enter run · esc back'
-          : screen === 'target'
-            ? '↑↓ choose the agent to continue in · enter fork · esc back'
-            : ''
+        ? 'scroll with the wheel or ↑↓'
+        : screen === 'actions' || screen === 'target'
+          ? 'click an item, or ↑↓ then enter'
+          : ''
 
   return (
     <Box flexDirection="column">
@@ -524,6 +720,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
         ))}
       </Box>
       {chips}
+      {actionBar}
       {screen === 'browse' && (
         <>
           <Columns layout={layout} width={columns} />
@@ -551,7 +748,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
       )}
 
       {screen === 'actions' && (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column">
           <Text bold color={THEME.yellowInk}>
             What do you want to do with {selected?.agent}:{selected?.id.slice(0, 8)}?
           </Text>
@@ -574,7 +771,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
       )}
 
       {screen === 'target' && (
-        <Box flexDirection="column" marginTop={1}>
+        <Box flexDirection="column">
           <Text bold color={THEME.yellowInk}>
             Continue this session in which agent?
           </Text>

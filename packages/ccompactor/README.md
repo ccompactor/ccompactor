@@ -58,6 +58,24 @@ Every claim carries a pointer, and the pointer works:
 ccompactor expand claude:7c1e8f82 4122..4381 --context 3
 ```
 
+## The interactive browser
+
+```sh
+ccompactor --tui
+```
+
+Every shortcut is also a button on the top bar, so nothing has to be memorised:
+
+```
+ ccompactor   352 of 720    all   claude 352   codex 194   pi 174
+[/ search] [0 all agents] [↵ quick look] [a actions] [q quit]
+```
+
+The agent chips filter. The bar shows every action on the current screen, and the keys are printed
+on the buttons so you learn them by using them. On a narrow terminal the captions drop and the keys
+stay — `[a]` is still a button. Rows, chips, buttons and menu items are all clickable, and the wheel
+scrolls the list and the quick look.
+
 ## The model is optional
 
 ```sh

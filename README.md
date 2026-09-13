@@ -85,7 +85,7 @@ ccompactor --tui
 | `verify <dir>` | re-check an artifact: schema, and whether its quotes are in the transcript |
 | `handoff <ref> --to <agent>` | launch a target agent with the context preloaded |
 | `update [--check]` | move this install to the newest release |
-| `--tui` | interactive browser |
+| `--tui` | interactive browser — every action is a clickable button, and the wheel scrolls |
 
 Session refs: `claude:7c1e8f82`, `claude:last`, `codex:6f1a2b3c`, or a path to a transcript.
 

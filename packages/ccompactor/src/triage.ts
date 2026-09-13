@@ -148,9 +148,52 @@ export function extractConstraints(ir: SessionIR): Constraint[] {
     }
   }
 
-  return found
-    .sort((a, b) => b.markers.length - a.markers.length || b.evt - a.evt)
-    .slice(0, MAX_CONSTRAINTS)
+  const ranked = found.sort(
+    (a, b) => b.markers.length - a.markers.length || b.evt - a.evt,
+  )
+  return sameRules(ranked).slice(0, MAX_CONSTRAINTS)
+}
+
+/**
+ * Collapse rules that were stated more than once.
+ *
+ * A standing rule is usually restated — once when it is given, again when it is
+ * nearly broken, again in a summary — and each restatement is worded a little
+ * differently, so comparing the text exactly kept all of them. The brief read:
+ *
+ *   - "Never stage with git add -A or git add .; always use explicit file paths"
+ *   - "Never git add -A/git add .; always explicit file paths"
+ *
+ * One rule, two lines, at the top of the block a reader is meant to skim. Two
+ * statements are the same rule when nearly all of the shorter one's words appear
+ * in the longer: a restatement is contained by the thing it restates, whereas
+ * two genuinely different rules share only the words "never" and "the".
+ *
+ * The highest-ranked wording keeps its place and the fullest wording wins, so
+ * merging cannot reorder the block.
+ */
+function sameRules(constraints: Constraint[]): Constraint[] {
+  const words = (text: string): Set<string> =>
+    new Set(normalize(text).split(' ').filter((w) => w.length > 0))
+  const out: Array<{ constraint: Constraint; words: Set<string> }> = []
+  for (const constraint of constraints) {
+    const next = words(constraint.text)
+    const twin = out.find((kept) => {
+      let shared = 0
+      for (const word of next) if (kept.words.has(word)) shared += 1
+      const smaller = Math.min(kept.words.size, next.size)
+      return shared >= 3 && shared / smaller >= 0.8
+    })
+    if (!twin) {
+      out.push({ constraint, words: next })
+      continue
+    }
+    if (constraint.text.length > twin.constraint.text.length) {
+      twin.constraint = { ...twin.constraint, text: constraint.text, evt: constraint.evt }
+      twin.words = next
+    }
+  }
+  return out.map((entry) => entry.constraint)
 }
 
 /** The clause with the pleasantries removed, so the directive can be tested. */

@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.1.11] — 2026-09-14
+
+### Added
+
+- **A clickable top bar, so no shortcut has to be memorised.** Every action on every screen is a
+  button, labelled with the key that does the same thing — `[/ search]`, `[↵ quick look]`,
+  `[a actions]`, `[q quit]` — and clicking it does exactly what the key does. The agent chips
+  (`claude 352`, `codex 194`, `pi 174`) filter on click. On a narrow terminal the captions drop
+  before the buttons do, so `[a]` is still a target.
+- **Menus respond to the mouse.** Rows, chips, buttons and menu items are clickable; the wheel
+  scrolls the session list, the quick look and the action menus.
+
+### Fixed
+
+- **A click on a chip ran a button one row below it.** Hit-testing searched every row's spans and
+  took the first match, so clicking the `claude` chip at column 38 hit `[↵ quick look]`, which
+  covers the same columns on the bar row — filtering by agent opened the preview instead. Rows now
+  own their spans.
+- **The bar collapsed to a single button when the terminal size was unknown.** A pty reports
+  `columns: 0`, and `0 ?? 100` is `0`, so every layout decision saw a zero-width terminal.
+- **Mouse escape sequences were typed into the search box**, spelling `[<0;3;3M` into the query.
+- **The brief quoted the same rule twice.** A standing rule is restated with slightly different
+  wording, and comparing the text exactly kept every restatement: `Never stage with git add -A…`
+  and `Never git add -A/git add .…` were two lines of a seven-line block. Restatements now merge,
+  the fullest wording wins, and the highest-ranked one keeps its place. On the reference session
+  the block went from 7 lines to 5.
+
 ## [0.1.10] — 2026-09-14
 
 ### Fixed

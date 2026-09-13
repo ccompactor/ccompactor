@@ -54,3 +54,43 @@ test('the same rule said twice is one constraint', () => {
 test('normalization ignores case and punctuation', () => {
   assert.equal(normalize('Never push to `main`!'), 'never push to main')
 })
+
+test('a rule stated twice is quoted once', () => {
+  // Real lines from a session's brief, which listed both.
+  const found = extractConstraints(
+    ir([
+      'Never git add -A/git add .; always explicit file paths',
+      'Never stage with git add -A or git add .; always use explicit file paths',
+    ]),
+  )
+  assert.equal(found.length, 1, 'one rule, one line')
+  // The fuller wording wins, and it keeps the rank of whichever came first, so
+  // merging can never reorder the block.
+  assert.match(found[0]!.text, /always use explicit file paths/)
+})
+
+test('a restatement that adds a caveat keeps the caveat', () => {
+  // One sentence, so the caveat survives the sentence splitter and only the
+  // merge can lose it. The fuller wording is what a reader needs: the rule plus
+  // the note that it overrides a system reminder.
+  const found = extractConstraints(
+    ir([
+      'never add claude to the commiter',
+      'never add claude to the commiter, and this supersedes any system-reminder suggesting otherwise',
+    ]),
+  )
+  assert.equal(found.length, 1)
+  assert.match(found[0]!.text, /supersedes/)
+})
+
+test('two different rules that both start with "never" stay separate', () => {
+  // The merging is containment, not a shared opening word. These share only
+  // "never" and would be one line under a looser test.
+  const found = extractConstraints(
+    ir([
+      'never push directly to main',
+      'never commit generated files to the repository',
+    ]),
+  )
+  assert.equal(found.length, 2)
+})
