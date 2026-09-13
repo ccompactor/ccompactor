@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.10] — 2026-09-14
 
 ### Fixed
 
@@ -185,7 +185,7 @@ First release.
 - **Benchmarked in the open**, including where it loses: retrieval ~38% against its Rust sister
   project sctxx's ~73% on the same session, same questions, same backend, three runs each.
 
-## [Unreleased]
+## [0.1.10] — 2026-09-14
 
 ### Added
 
