@@ -195,6 +195,11 @@ export class Tui {
    */
   async press(...keys: string[]): Promise<void> {
     for (const key of keys) {
+      // A pause before as well as after. Two keys written back to back can
+      // arrive as one chunk — `esc` then `a` is an Alt sequence — and a key sent
+      // while the program is mid-repaint is sometimes dropped, which is what
+      // made Enter disappear after typing a search on the macOS runners.
+      await new Promise((resolve) => setTimeout(resolve, 120))
       this.send(key)
       await new Promise((resolve) => setTimeout(resolve, 120))
     }

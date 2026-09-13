@@ -196,7 +196,7 @@ test('the bottom bar offers help, and it opens', opts, async () => {
   try {
     await tui.send('?')
     await tui.waitFor(/Keys/)
-    await tui.send('\u001b')
+    await tui.press('\u001b')
     await tui.waitFor(/session\(s\)/)
   } finally {
     await tui.close()
@@ -227,7 +227,7 @@ test('the quick look opens and closes', opts, async () => {
   try {
     await tui.send('v')
     await tui.waitFor(/quick look|claude:fixture/)
-    await tui.send('\u001b')
+    await tui.press('\u001b')
     await tui.waitFor(/session\(s\)/)
   } finally {
     await tui.close()
