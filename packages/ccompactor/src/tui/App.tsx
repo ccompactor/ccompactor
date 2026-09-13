@@ -62,6 +62,13 @@ interface Props {
 const PREFILL_MAX_BYTES = 32 * 1024 * 1024
 
 export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
+  // A trace for the case where the frame never appears: it says whether the
+  // component ran at all, and with which terminal size, without changing
+  // anything when it is off.
+  const trace = (what: string): void => {
+    if (process.env['CCOMPACTOR_TUI_TRACE']) process.stderr.write(`[tui] ${what}\n`)
+  }
+  trace('component')
   const { exit } = useApp()
   const { stdout } = useStdout()
   // Not `?? 100`: a pty with no window size reports 0, and 0 is not nullish, so
@@ -126,6 +133,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
   }, [sessions, query, agentsOff])
 
   // Rows the content pane may draw on, minus what the pane itself spends.
+  trace(`loaded sessions=${sessions.length} columns=${columns} rows=${rows}`)
   const bodyHeight = Math.max(4, rows - 2)
   const contentHeight = Math.max(2, bodyHeight - 3)
   const visibleRows = Math.max(2, contentHeight - 2)
@@ -772,6 +780,7 @@ export function App({ outDir, anyProject, onDone }: Props): React.ReactElement {
   // ---- render -------------------------------------------------------------
 
   if (loading) {
+    trace(`loading columns=${columns} rows=${rows}`)
     return (
       <Box flexDirection="column">
         <Text bold backgroundColor={THEME.yellow} color={THEME.onYellow}>

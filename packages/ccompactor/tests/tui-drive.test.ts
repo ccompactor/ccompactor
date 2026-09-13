@@ -22,7 +22,10 @@ async function start(outDir?: string): Promise<{ tui: Tui; store: ReturnType<typ
   const store = fixtureStore(3)
   const args = [process.execPath, CLI, '--tui', '--any-project']
   if (outDir) args.push('--out', outDir)
-  const tui = new Tui(args, { env: store.env, cwd: store.cwd })
+  const tui = new Tui(args, {
+    env: { ...store.env, CCOMPACTOR_TUI_TRACE: '1' },
+    cwd: store.cwd,
+  })
   await tui.waitFor(/ccompactor\s+all 3/)
   return { tui, store }
 }
