@@ -108,6 +108,9 @@ jobs:
       # present even though nothing in the shipped path uses them.
       - name: compile
         run: |
+          # `src/version.ts` is what `--version` reports, and the binaries are
+          # compiled straight from source, so it has to be current first.
+          node packages/ccompactor/scripts/gen-version.mjs
           bun build --compile \
             --target=${{ matrix.target }} \
             --outfile dist/${{ matrix.asset }}${{ matrix.ext }} \

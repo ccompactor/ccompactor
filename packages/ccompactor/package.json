@@ -1,6 +1,6 @@
 {
   "name": "ccompactor",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Extract any coding-agent session (Claude Code, Codex, Pi) into a compact, verified, provenance-linked handoff that any other agent can continue from.",
   "type": "module",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/gen-version.mjs && tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "dev": "npm run build --silent && node dist/cli.js",
     "test": "tsc -p tsconfig.test.json && cd dist-test && node --test",

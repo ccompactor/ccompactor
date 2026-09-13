@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.7] — 2026-09-14
+
+### Fixed
+
+- **`ccompactor --version` has been reporting `0.1.2` since 0.1.2.** It was a typed constant, and
+  nothing connected it to `package.json`, so the one command a user runs to find out whether their
+  install updated was the one thing that never changed. The version is now generated from
+  `package.json` at build time — which also covers the compiled standalone binaries, that have no
+  `package.json` to read at runtime — and a test fails if the two ever disagree.
+
 ## [0.1.6] — 2026-09-14
 
 ### Fixed

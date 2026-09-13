@@ -7,6 +7,7 @@
  * what lets an agent pipe `--json` into a parser without also getting a log.
  */
 import { Command } from 'commander'
+import { VERSION } from './version.js'
 import { adapters } from './adapters/index.js'
 import { listSessions, findSessions, resolveSession } from './discover/index.js'
 import { AmbiguousError, UsageError } from './discover/index.js'
@@ -20,7 +21,7 @@ program
   .description(
     'Extract any coding agent session into a compact, verified, provenance-linked handoff any other agent can continue from.',
   )
-  .version('0.1.2')
+  .version(VERSION)
   .option('--json', 'machine-readable output on stdout')
   .option('--quiet', 'suppress progress and diagnostics on stderr')
   .option('--tui', 'open the interactive browser')
