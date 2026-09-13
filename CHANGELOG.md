@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.25] — 2026-09-14
+
+### Fixed
+
+- **The TUI drive tests could not run on any CI runner.** Ink checks `CI` and, when it is set,
+  suppresses its live output entirely — it writes only `<Static>` content and returns. On a real pty
+  that meant the TUI produced nothing but the mouse-tracking escape, which looked exactly like a
+  hang. The harness now clears `CI` and `CONTINUOUS_INTEGRATION` for the child: it hands the program a
+  genuine terminal, which is precisely what Ink is declining to write to.
+
+  Finding that took longer than it should have, so the harness now proves itself first — it can run a
+  trivial program, the CLI, and a minimal Ink app — and a timeout reports the argv, the pid, the byte
+  count and the raw head of what did arrive. Twenty-three identical timeouts with no output said
+  nothing; two lines of raw bytes said everything.
+
+### Added
+
+- Tests that drive the real TUI: every sidebar page, every top-bar tab, every bottom-bar button,
+  every action in the action dialog, every dialog open and close, and a real extract asserting the
+  files the dialog names exist afterwards. They found four bugs before they passed.
+
 ## [0.1.17] — 2026-09-14
 
 ### Added

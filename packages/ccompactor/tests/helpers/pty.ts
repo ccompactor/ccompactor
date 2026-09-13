@@ -39,6 +39,24 @@ export { PACKAGE as PACKAGE_FOR_PROBE }
 // against the package rather than this file, which lives in `dist-test`.
 const BRIDGE = join(PACKAGE, 'tests', 'helpers', 'pty-bridge.py')
 
+/**
+ * The environment for the program under test, without the CI markers.
+ *
+ * Ink suppresses its live output when it believes it is running in CI — it
+ * writes only `<Static>` content and returns, so a TUI on a real pty produces
+ * nothing but whatever the program writes to stderr directly. That assumption
+ * does not hold here: this harness hands the program a genuine terminal, which
+ * is exactly what Ink is declining to write to.
+ *
+ * `is-in-ci` checks the presence of these two and nothing else.
+ */
+export function childEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, ...extra }
+  delete env['CI']
+  delete env['CONTINUOUS_INTEGRATION']
+  return env
+}
+
 function python(): string {
   return process.env['PYTHON'] ?? 'python3'
 }
@@ -127,7 +145,7 @@ export class Tui {
     this.argv = [file, ...args]
     this.child = spawn(file, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      env: childEnv(options.env),
       stdio: ['pipe', 'pipe', 'pipe'],
       // Its own process group, so `close` can take the bridge *and* the program
       // it is driving. Killing only the bridge left the TUI running: twenty of
