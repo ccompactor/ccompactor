@@ -6,7 +6,11 @@ import { test } from 'node:test'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
-const CLI = fileURLToPath(new URL('../../dist/cli.js', import.meta.url))
+// The CLI that `npm test` just compiled. Pointing this at `dist/` passed on a
+// developer's machine, where an earlier build happened to be lying around, and
+// exited 1 in CI with "cannot find module" — which looked exactly like the bug
+// under test.
+const CLI = fileURLToPath(new URL('../src/cli.js', import.meta.url))
 
 /**
  * Commands document exit codes — `verify --strict` is specified as exit 7 — and
@@ -33,11 +37,19 @@ test('an exit code set by a command survives the entry point', () => {
     const strict = spawnSync(process.execPath, [CLI, 'verify', dir, '--strict'], {
       encoding: 'utf8',
     })
-    assert.equal(strict.status, 7, `expected exit 7, got ${strict.status}`)
+    assert.equal(
+      strict.status,
+      7,
+      `expected exit 7, got ${strict.status}: ${strict.stderr}`,
+    )
 
     // Without --strict the same missing quote is reported and not an error.
     const lenient = spawnSync(process.execPath, [CLI, 'verify', dir], { encoding: 'utf8' })
-    assert.equal(lenient.status, 0, `expected exit 0, got ${lenient.status}`)
+    assert.equal(
+      lenient.status,
+      0,
+      `expected exit 0, got ${lenient.status}: ${lenient.stderr}`,
+    )
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
