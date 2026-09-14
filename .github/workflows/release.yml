@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !inputs.dry_run }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
@@ -102,11 +102,11 @@ jobs:
             archive: zip
             ext: .exe
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -165,7 +165,7 @@ jobs:
           cp LICENSE "$ROOT/usr/share/doc/ccompactor/copyright" 2>/dev/null || true
           dpkg-deb --build --root-owner-group "$ROOT"
           mv "${ROOT}.deb" dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.asset }}
           path: |
@@ -178,7 +178,7 @@ jobs:
     needs: binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
