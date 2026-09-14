@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.27] — 2026-09-14
+
+### Fixed
+
+- **The TUI harness could take the test runner down with `write EPIPE`.** A write to a child that has
+  already exited raises EPIPE on the stream as an *event*, not as a throw, so `send`'s `try`/`catch`
+  never saw it and the unhandled error failed whichever test happened to be running. It is an expected
+  race: the program under test exits when it is told to, and the harness keeps sending at it while it
+  goes. The child's streams now have error handlers, and `send` is a no-op once the child has exited.
+
+  The failure looked like a random test breaking on one platform, which is the worst way for a
+  harness bug to present itself.
+
 ## [0.1.26] — 2026-09-14
 
 ### Fixed

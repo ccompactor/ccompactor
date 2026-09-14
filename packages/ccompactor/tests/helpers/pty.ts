@@ -169,6 +169,15 @@ export class Tui {
       this.spawnError = error.message
       this.exited = true
     })
+    // A write to a child that has already gone raises EPIPE on the stream as an
+    // *event*, not as a throw, so `send`'s try/catch never sees it and the
+    // unhandled error takes the whole test runner down. It is expected here:
+    // the program under test exits when it is told to, and the harness keeps
+    // sending at it while it goes.
+    const ignore = (): void => {}
+    this.child.stdin.on('error', ignore)
+    this.child.stdout.on('error', ignore)
+    this.child.stderr.on('error', ignore)
     this.child.on('exit', (code) => {
       this.exited = true
       this.exitCode = code ?? 0
@@ -182,6 +191,7 @@ export class Tui {
 
   /** Send bytes as if typed. Mouse events are SGR sequences. */
   send(keys: string): void {
+    if (this.exited) return
     try {
       this.child.stdin.write(keys)
     } catch {
